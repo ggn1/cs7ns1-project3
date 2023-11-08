@@ -1,0 +1,9 @@
+Following are some useful Python concepts to learn.
+
+* Public key infrastructure for trust establishment and encryption .
+
+* Socket programming to setup UDP sessions .
+
+* Builtin cryptography package.
+
+* K nearest neighbors concept for neighborship discovery.
