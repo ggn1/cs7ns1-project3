@@ -1,0 +1,12 @@
+PROJECT STEPS
+=============
+
+1. Get a concept and plan together. What to try to implement and emulate?
+
+2. What types of data need to pass between the nodes or devices?
+
+3. Have something listening on particular port(s) for incoming connections from other devices, and be able to make connections to other devices.
+
+4. Interest Discovery: How should discovery and routing work?
+    * Information Centric Routing and/or Named Data Routing.
+    * Some parallels with P2P concepts where nodes need to know what a neighbour can do, is interested in, and some part of what they know.
