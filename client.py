@@ -1,13 +1,24 @@
 import socket
 
-HOST = '10.10.4.227' # Server's IP address.
-PORT = 3000 # Server's port.
+class Client:
+    def __init__(self, host_server, port, name):
+        self.name = name
+        self.host_server = host_server
+        self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP
+    
+    def connect(self):
+        ''' Connects to server. '''
+        self.socket.connect((self.host_server, self.port))
 
-socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-socket.connect((HOST, PORT))
-message = 'Hello World!'
-message = message.encode('utf-8')
-socket.send(message)
-response = socket.recv(1024)
-response = response.decode('utf-8')
-print(response)
+    def send(self, data):
+        ''' Sends data to server and returns response. '''
+        data = data.encode('utf-8')
+        self.socket.send(data)
+        response = socket.recv(1024)
+        response = response.decode('utf-8')
+        print(f'Client ({self.name}): Response from server ({self.host_server}) is "{response}".')
+
+
+
+

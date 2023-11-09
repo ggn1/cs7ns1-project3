@@ -1,24 +1,37 @@
 import socket
 
-HOST = socket.gethostbyname('CinderHeart') # Own IP
-PORT = 3000
+class Server:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP
+        self.connections = []
+        self.listening = True
+        self.socket.bind((self.host, self.port))
+        self.listen()
+        
+    def listen(self):
+        ''' Listens on given port. '''
+        self.socket.listen()
+        print(f'Server ({self.host}): Listening on port {self.port}.')
+        
+        while self.listening:
+            socket_communication, address = self.socket.accept()
+            print(f'Server ({self.host}): Connected to {address}.')
+            
+            data = socket_communication.recv(1024) # receive bytes
+            self.connections.append(address)
+            self.handle_received(data, socket_communication, len(self.connections)-1)
 
-server = socket.socket( # Only for accepting connections.
-    socket.AF_INET,
-    socket.SOCK_STREAM
-)
-server.bind((HOST, PORT))
+    def handle_received(self, data, socket, connection_index):
+        ''' Handle received data and send appropriate response. '''
+        sender = self.connections[connection_index]
+        data = data.decode('utf-8')
+        print(f'Server ({self.host}): Message from client is "{data}".')
 
-server.listen(5)
-
-while True:
-    communication_socket, address = server.accept()
-    print(f'Connected to {address}.')
-    message = communication_socket.recv(1024) # receive bytes
-    message = message.decode('utf-8')
-    print(f'Message from client is: {message}.')
-    response = 'Got your message! Thank you!'
-    response = response.encode('utf-8')
-    communication_socket.send(response)
-    communication_socket.close()
-    print(f'Connection with {address} closed.')
+        response = f'Server ({self.host}): Dear {sender}, got your message. Thank you!'
+        response = response.encode('utf-8')
+        socket.send(response)
+        socket.close()
+        print(f'Server ({self.host}): Connection with {sender} closed.')
+        self.listening = False
