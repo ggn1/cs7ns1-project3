@@ -8,4 +8,5 @@
         # There is a hack around this @ https://python-forum.io/thread-12921.html.
           # This works in the WSL on local machine but not on the Pi due to dafety measures in place.
     # Conclusion = Build NDN over IP.
-2. We need some transport protocol like TCP that works with NDN (layer 3). 
+2. We need a node that is both able to listen for message and send messages as well. 
+   This node should contain CS, PIT and FIB tables for routing and forwarding.
