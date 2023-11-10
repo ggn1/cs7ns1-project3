@@ -1,0 +1,7 @@
+1. We need to replace IP with some ICN like NDN (layer 2).
+    # We can implement our own NDN protocol from scratch.
+    # This would mean creating custom data packets.
+        # We can create layer 2 only packets using the Scapy library.
+    # To receive these packets though, we'd need to listen on war sockets.
+        # 
+2. We need some transport protocol like TCP that works with NDN. 
