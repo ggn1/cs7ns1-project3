@@ -4,7 +4,12 @@ PROTOCOL = {
     'disconnect': 'okover'
 }
 
-def message_transfer_protocol(conn):
+def make_interest_packet(name, snib):
+    ''' Creates an interest packet. '''
+    packet = f'{name}|{snib}'
+    return packet
+
+def message_decode(conn):
     ''' Receives input from a peer and decodes it into a message while
         following the message transfer protocol. 
         Returns decoded message and whether the peer is still connected.
@@ -18,3 +23,11 @@ def message_transfer_protocol(conn):
     else: 
         message = None
     return message, is_connected
+
+def message_encode(conn, message):
+    message = message.encode(PROTOCOL['format'])
+    message_length = len(message)
+    send_length = str(message_length).encode(PROTOCOL['format'])
+    send_length += b' '*(PROTOCOL['header']-len(send_length)) # padding
+    conn.send(send_length)
+    conn.send(message)

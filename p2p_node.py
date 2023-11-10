@@ -2,7 +2,9 @@ import socket
 import argparse
 import threading
 from protocol import PROTOCOL
-from protocol import message_transfer_protocol
+from protocol import make_interest_packet
+from protocol import message_decode
+from protocol import message_encode
 
 def setup_argparser():
     ''' Adds arguments.
@@ -46,12 +48,21 @@ class Node:
         thread_listen = threading.Thread(target=self.listen, args=()) # Begining to listen.
         thread_listen.start()
         self.connections = []
+        # Sensors and actuators.
+        self.sensor_cancer_marker = {'detected':0}
+        self.sensor_beacon_detector = {'detected':0}
+        self.actuator_thethers = {'extended':0}
+        self.actuator_head_rotator = {'dir':'right', 'speed':0}
+        self.actuator_propeller_rotator = {'dir':'left', 'speed':0}
+        self.actuator_beacon = {'active':0}
+        self.actuator_self_destruct = {'initiated':0}
+        self.actuator_cargo_hatch = {'open':0}
 
     def handle_peer(self, port_peer):
         ''' Handles new connection to a peer. '''
         is_connected = True
         while is_connected:
-            message, is_connected = message_transfer_protocol(self.connections[port_peer])
+            message, is_connected = message_decode(self.connections[port_peer])
             if message: print(f'[PEER {port_peer}] {message}')
         self.connections[port_peer].close()
         del self.connections[port_peer]

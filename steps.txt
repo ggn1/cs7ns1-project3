@@ -10,3 +10,6 @@
     # Conclusion = Build NDN over IP.
 2. We need a node that is both able to listen for message and send messages as well. 
    This node should contain CS, PIT and FIB tables for routing and forwarding.
+   [In Progress ...]
+3. Determine how to do neighbour discovery.
+4. Determine routing.

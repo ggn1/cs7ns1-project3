@@ -36,7 +36,6 @@ def setup_argparser():
 
 class Server:
     def __init__(self, host, port):
-        # self.connections = []
         self.address = (host, port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind(self.address)
