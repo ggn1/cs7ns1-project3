@@ -5,7 +5,7 @@ import socket
 import random
 import argparse
 import threading
-from protocol import PROTOCOL
+from protocol import send_tcp
 from protocol import make_interest_packet
 from protocol import make_data_packet
 
@@ -102,9 +102,9 @@ class Node:
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
-        # # Listen thread.
-        # thread_listen = threading.Thread(target=self.listen, args=())
-        # thread_listen.start()
+        # Listen thread.
+        thread_listen = threading.Thread(target=self.listen, args=())
+        thread_listen.start()
 
         # Move thread.
         thread_move = threading.Thread(target=self.move, args=())
@@ -113,6 +113,21 @@ class Node:
         # Human computer interaction thread.
         thread_hci = threading.Thread(target=self.human_computer_interface, args=())
         thread_hci.start()
+
+    def handle_incoming(self, conn, addr):
+        ''' Handle received data and send appropriate response. '''
+        message = conn.recv(1024).decode('utf-8')
+        packet = json.loads(message)
+        print(f'[{self.name}] Message received from {addr}: {packet}.')
+        conn.close()
+
+    def listen(self):
+        ''' Listens on given port. '''
+        self.socket.listen()
+        print(f'[NanoBot {self.name}] Listening on {self.host} port {self.port} ...')
+        while True:
+            socket_connection, address = self.socket.accept()
+            self.handle_incoming(socket_connection, address)
 
     def move(self):
         while True:
@@ -124,31 +139,14 @@ class Node:
             if new_position >= CONFIG['blood_stream_length']: new_position = 0
             self.position = int(new_position)
 
-    def listen(self):
-        self.socket.listen()
-        print(f'[SELF {self.port} {self.port}] Listening on port {self.port} ...')
-        while True:
-            socket_peer, port_peer = self.socket.accept()
-            self.position += 1
-            thread_peer = threading.Thread(target=self.handle_peer, args=(port_peer,))
-            thread_peer.start()
-            print(f'[SELF {self.port} {self.port}] New connection! Connected to {socket_peer}. No. of active connections = {threading.active_count()-1}.')
-
-    def send_tcp(self, message, host, port):
-        socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        socket_temp.connect((host, port))
-        message = message.encode('utf-8')
-        socket_temp.send(message)
-        socket_temp.close()
-
     def set_sensor_beacon(self, new_value):
         self.__sensors['sensor_beacon'] = new_value
         if (
             self.__sensors['sensor_beacon'] < 0 
             and self.marker != CONFIG['primary_marker']
         ):
-            content_name = f'beacon/{self.host}/{self.port}/{self.name}'
-            self.send_tcp(
+            content_name = f'{self.host}-{self.port}-{self.name}/beacon'
+            send_tcp(
                 message=make_interest_packet(content_name=content_name), 
                 host=CONFIG['rendezvous_server'][0],
                 port=CONFIG['rendezvous_server'][1]
@@ -171,11 +169,15 @@ class Node:
                 self.__actuators['beacon'] = 0
             else:
                 self.__actuators['beacon'] = 1
-                content_name = f'beacon/{self.host}/{self.port}/{self.name}'
-                self.send_tcp(
+                content_name = f'{self.host}-{self.port}-{self.name}/beacon'
+                send_tcp(
                     message=make_data_packet(
                         content_name=content_name,
-                        data={'position': self.position}
+                        data={
+                            'position': self.position, 
+                            'host': self.host, 
+                            'port':self.port
+                        }
                     ),
                     host=CONFIG['rendezvous_server'][0],
                     port=CONFIG['rendezvous_server'][1]

@@ -2,7 +2,7 @@ import json
 import socket
 import argparse
 import threading
-from protocol import PROTOCOL
+from protocol import send_tcp
 
 def setup_argparser():
     ''' Adds arguments.
@@ -37,31 +37,69 @@ def setup_argparser():
 
 class Server:
     def __init__(self, host, port):
-        self.address = (host, port)
+        self.host = host
+        self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
-        self.socket.bind(self.address)
-        self.start()
+        self.socket.bind((host, port))
+        self.content_store = {}
+        self.pending_interest_table = {}
+        self.forwarding_information_base = {}
+        self.ndn_ip = {}
+        self.listen()
 
     def handle_interest_packet(self, packet):
-        pass
+        content_name = packet['content_name'].split('/')
+        sender_host, sender_port, sender_name = content_name[0].split('-')
+        data_name = '/'.join(content_name[1:len(content_name)-1])
+        timestamp = content_name[-1]
+        self.ndn_ip[sender_name] = (sender_host, sender_port)
+
+        # Add this interest to the PIT.
+        if (data_name in self.pending_interest_table): # data_name exists
+            incoming_faces = self.pending_interest_table[data_name]
+            if not sender_name in incoming_faces: # if this sender is not already in the list 
+                self.pending_interest_table[data_name].append(sender_name)
+        else: # data_name does not exist
+            self.pending_interest_table[data_name] = [sender_name]
+
+        # Search Content Store
+        if (data_name in self.content_store): # data in CS
+            interested = self.pending_interest_table[data_name]
+            for name in interested:
+                host, port = self.ndn_ip[name] 
+                send_tcp(
+                    message=json.dumps(self.content_store[data_name]),
+                    host=host, port=int(port)
+                )
+            del self.pending_interest_table[data_name]
 
     def handle_data_packet(self, packet):
-        pass
+        content_name = packet['content_name'].split('/')
+        sender_host, sender_port, sender_name = content_name[0].split('-')
+        data_name = '/'.join(content_name[1:len(content_name)-1])
+        timestamp = content_name[-1]
+        data = packet['data']
+        self.ndn_ip[sender_name] = (sender_host, sender_port)
+        self.content_store[data_name] = data
+        print(f'[RENDEZVOUS SERVER] Added {data_name} to content store.')
 
     def handle_incoming(self, conn, addr):
         ''' Handle received data and send appropriate response. '''
         message = conn.recv(1024).decode('utf-8')
         packet = json.loads(message)
-        print(f'Message received from {addr}: {packet}')
+        if packet['type'] == 'data':
+            self.handle_data_packet(packet)
+        else:
+            self.handle_interest_packet(packet)
         conn.close()
         
-    def start(self):
+    def listen(self):
         ''' Listens on given port. '''
         self.socket.listen()
-        print(f'[SERVER {self.address[0]}] Listening on port {self.address[1]} ...')
+        print(f'[RENDEZVOUS SERVER] Listening on {self.host} port {self.port} ...')
         while True:
             socket_connection, address = self.socket.accept()
-            print(f'[SERVER {self.address[0]}] Connected to {address}.')
+            # print(f'[RENDEZVOUS SERVER] Connected to {address}.')
             self.handle_incoming(socket_connection, address)
 
 if __name__ == '__main__':
