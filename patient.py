@@ -11,11 +11,39 @@
 # the reverse direction, it moves at speed 1 - x.
 
 # Imports.
+import json
 import random
+from nanobot import Node
 
-config = {'bloodstream_length': 100}
+CONFIG = {}
+with open('config.json', 'r') as f: CONFIG = json.load(f)
 
-nanobots = []
+PORTS = {}
+with open('ports.json', 'r') as f: PORTS = json.load(f)
+
+bots = {} # Bot name to bot object mapping.
+tumour = 50 # Tumour to position mapping.
+
+def get_port():
+    port = PORTS['available'].pop(0)
+    PORTS['taken'].append(port)
+    with open('ports.json', 'w') as f:
+        json.dump(PORTS, f)
+    return port
+
+def make_bot_team():
+    ''' Creates a team of 5 bots and adds them to the blood stream. '''
+    for marker in CONFIG['markers']:
+        bot_name = f'bot{len(bots)}'
+        bots[bot_name] = Node(
+            host='127.0.0.1', 
+            port=get_port(),
+            marker=marker,
+            name=bot_name
+        )
 
 if __name__ == '__main__':
-    pass
+    for i in range(1):
+        make_bot_team()
+    while True:
+        
