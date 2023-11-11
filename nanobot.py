@@ -77,23 +77,27 @@ class Node:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
+        self.content_store = {}
+        self.pending_interest_table = {}
+        self.forwarding_information_base = {}
+        self.ndn_ip = {}
         
         # Sensors and actuators.
         self.__sensors = {
-            'sensor_cancer_marker': None, # 1 => detected
-            'sensor_beacon': None # position of beacon detected
+            'cancer_marker': None, # 1 => detected
+            'beacon': None # position of beacon detected
         }
 
         self.__actuators = {
-            'actuator_tethers': 0, # 1 => extended
-            'actuator_head_rotator': 0, # 1 => acceleration (+ve = forward, -ve = backward)
-            'actuator_propeller_rotator': 0, # 1 => acceleration (+ve = forward, -ve = backward)
-            'actuator_self_destruct': 0, # 1 => detonated
-            'actuator_cargo_hatch': 0, # 1 => open
-            'actuator_diffuser': 0, # 1 => diffused
+            'tethers': 0, # 1 => extended
+            'head_rotator': 0, # 1 => acceleration (+ve = forward, -ve = backward)
+            'propeller_rotator': 0, # 1 => acceleration (+ve = forward, -ve = backward)
+            'self_destruct': 0, # 1 => detonated
+            'cargo_hatch': 0, # 1 => open
+            'diffuser': 0, # 1 => diffused
         }
 
-        self.set_sensor_beacon(-1)
+        self.set_beacon(-1)
         self.set_cancer_marker(0)
 
         if self.marker == CONFIG['primary_marker']: 
@@ -114,11 +118,29 @@ class Node:
         thread_hci = threading.Thread(target=self.human_computer_interface, args=())
         thread_hci.start()
 
+    def handle_data_packet(self, packet):
+        content_name = packet['content_name'].split('/')
+        sender_host, sender_port, sender_name = content_name[0].split('-')
+        data_name = '/'.join(content_name[1:len(content_name)-1])
+        timestamp = content_name[-1]
+        data = packet['data']
+        self.ndn_ip[sender_name] = (sender_host, sender_port)
+        self.content_store[data_name] = data
+        if 'beacon' in data_name:
+            self.set_beacon(data['position'])
+        # print(f'[RENDEZVOUS SERVER] Added {data_name} to content store.')
+
     def handle_incoming(self, conn, addr):
         ''' Handle received data and send appropriate response. '''
         message = conn.recv(1024).decode('utf-8')
         packet = json.loads(message)
+        print(packet)
         print(f'[{self.name}] Message received from {addr}: {packet}.')
+        if packet['type'] == 'data':
+            self.handle_data_packet(packet)
+        else:
+            # self.handle_interest_packet(packet)
+            pass
         conn.close()
 
     def listen(self):
@@ -133,39 +155,50 @@ class Node:
         while True:
             time.sleep(1)
             new_position = self.position + CONFIG['blood_speed'] + (
-                self.__actuators['actuator_head_rotator'] 
-                + self.__actuators['actuator_propeller_rotator'] 
+                self.__actuators['head_rotator'] 
+                + self.__actuators['propeller_rotator'] 
             )
             if new_position >= CONFIG['blood_stream_length']: new_position = 0
             self.position = int(new_position)
 
-    def set_sensor_beacon(self, new_value):
-        self.__sensors['sensor_beacon'] = new_value
-        if (
-            self.__sensors['sensor_beacon'] < 0 
+    def search_beacon(self):
+        print(f'[{self.name}] Searching for beacon ...')
+        while (
+            self.__sensors['beacon'] < 0 
             and self.marker != CONFIG['primary_marker']
         ):
+            time.sleep(1)
             content_name = f'{self.host}-{self.port}-{self.name}/beacon'
             send_tcp(
                 message=make_interest_packet(content_name=content_name), 
                 host=CONFIG['rendezvous_server'][0],
                 port=CONFIG['rendezvous_server'][1]
             )
+        print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
+
+    def set_beacon(self, new_value):
+        self.__sensors['beacon'] = new_value
+        if (
+            self.__sensors['beacon'] < 0 
+            and self.marker != CONFIG['primary_marker']
+        ):
+            thread_search_beacon = threading.Thread(target=self.search_beacon, args=())
+            thread_search_beacon.start()
 
     def handle_actuator_tether(self, tether):
         if tether == 0:
-            self.__actuators['actuator_tethers'] = 0
-            self.__actuators['actuator_head_rotator'] = 0
-            self.__actuators['actuator_propeller_rotator'] = 0
+            self.__actuators['tethers'] = 0
+            self.__actuators['head_rotator'] = 0
+            self.__actuators['propeller_rotator'] = 0
         else:
-            self.__actuators['actuator_tethers'] = 1
-            self.__actuators['actuator_head_rotator'] = -0.5
-            self.__actuators['actuator_propeller_rotator'] = -0.5
-            print(f'[{self.host}_{self.port}_{self.name}]: Tethered to {self.position}.')
+            self.__actuators['tethers'] = 1
+            self.__actuators['head_rotator'] = -0.5
+            self.__actuators['propeller_rotator'] = -0.5
+            print(f'[{self.name}] Tethered to {self.position}.')
 
     def handle_actuator_beacon(self):
         if 'actuator_beacon' in self.__actuators:
-            if self.__actuators['actuator_tethers'] == 0:
+            if self.__actuators['tethers'] == 0:
                 self.__actuators['beacon'] = 0
             else:
                 self.__actuators['beacon'] = 1
@@ -184,9 +217,9 @@ class Node:
                 )
     
     def set_cancer_marker(self, new_value):
-        self.__sensors['sensor_cancer_marker'] = new_value
+        self.__sensors['cancer_marker'] = new_value
         if (
-            self.__sensors['sensor_cancer_marker'] == 1 
+            self.__sensors['cancer_marker'] == 1 
             and self.marker == CONFIG['primary_marker']
         ): self.handle_actuator_tether(1)
         else: self.handle_actuator_tether(0)
@@ -194,12 +227,12 @@ class Node:
             
     def set_sensors(self, new):
         for key, value in new.items():
-            if key == 'sensor_beacon':
-                self.set_sensor_beacon(value)
-                print(f'[NanoBot {self.port}]: Updated sensor_beacon to {value}.')
-            if key == 'sensor_cancer_marker':
+            if key == 'beacon':
+                self.set_beacon(value)
+                print(f'[NanoBot {self.port}]: Updated beacon to {value}.')
+            if key == 'cancer_marker':
                 self.set_cancer_marker(value)
-                print(f'[NanoBot {self.port}]: Updated sensor_cancer_marker to {value}.')
+                print(f'[NanoBot {self.port}]: Updated cancer_marker to {value}.')
 
     def human_computer_interface(self):
         while True:

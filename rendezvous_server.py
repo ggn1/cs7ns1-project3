@@ -78,9 +78,8 @@ class Server:
         sender_host, sender_port, sender_name = content_name[0].split('-')
         data_name = '/'.join(content_name[1:len(content_name)-1])
         timestamp = content_name[-1]
-        data = packet['data']
         self.ndn_ip[sender_name] = (sender_host, sender_port)
-        self.content_store[data_name] = data
+        self.content_store[data_name] = packet
         print(f'[RENDEZVOUS SERVER] Added {data_name} to content store.')
 
     def handle_incoming(self, conn, addr):
