@@ -1,12 +1,6 @@
 import json
 import time
 
-PROTOCOL = {
-    'header': 64,
-    'format': 'utf-8',
-    'disconnect': 'okover'
-}
-
 def make_interest_packet(content_name):
     ''' Creates an interest packet. '''
     packet = {
