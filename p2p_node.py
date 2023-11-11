@@ -130,7 +130,6 @@ class Node:
             update = json.loads(update)
             self.set_sensors(update)
         
-
 if __name__ == '__main__':
     args = setup_argparser()
     me = Node(host=args.host, port=args.port)
