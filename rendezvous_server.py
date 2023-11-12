@@ -56,11 +56,9 @@ class Server:
 
         # Add this interest to the PIT.
         if (data_name in self.pending_interest_table): # data_name exists
-            incoming_faces = self.pending_interest_table[data_name]
-            if not sender_name in incoming_faces: # if this sender is not already in the list 
-                self.pending_interest_table[data_name].append(sender_name)
+            self.pending_interest_table[data_name].add(sender_name)
         else: # data_name does not exist
-            self.pending_interest_table[data_name] = [sender_name]
+            self.pending_interest_table[data_name] = set([sender_name])
 
         # Search Content Store
         if (data_name in self.content_store): # data in CS

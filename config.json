@@ -2,6 +2,7 @@
     "rendezvous_server": ["127.0.0.1", 30000],
     "blood_stream_length": 20,
     "blood_speed": 1,
-    "markers": ["tumour", "survivin", "growth", "ecm", "acidity"],
-    "primary_marker": "tumour"
+    "markers": ["tumour", "survivin", "growth", "ecmr", "acidity"],
+    "primary_marker": "tumour",
+    "num_neighbors": 2
 }
