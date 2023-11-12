@@ -81,6 +81,8 @@ class Node:
         self.pending_interest_table = {}
         self.forwarding_information_base = {}
         self.ndn_ip = {}
+        self.knowledge = {}
+        self.populate_knowledge()
         
         # Sensors and actuators.
         self.__sensors = {
@@ -117,6 +119,18 @@ class Node:
         # Human computer interaction thread.
         thread_hci = threading.Thread(target=self.human_computer_interface, args=())
         thread_hci.start()
+
+    def populate_knowledge(self):
+        for marker in CONFIG['markers']:
+            knowledge = {'name': '', 'host': '', 'port': -1, 'marker_value': -1}
+            if marker == self.marker:
+                knowledge = {
+                    'name': self.name, 
+                    'host': self.host, 
+                    'port': self.port, 
+                    'marker_value': -1
+                }
+            self.knowledge[marker] = knowledge
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -160,6 +174,10 @@ class Node:
             )
             if new_position >= CONFIG['blood_stream_length']: new_position = 0
             self.position = int(new_position)
+            if (
+                self.__sensors['beacon'] == self.position
+                and self.__actuators['tethers'] != 1
+            ): self.handle_actuator_tether(tether=1)
 
     def search_beacon(self):
         print(f'[{self.name}] Searching for beacon ...')
