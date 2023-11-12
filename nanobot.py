@@ -76,6 +76,7 @@ class Node:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
+        self.lock = threading.Lock()
         
         # Sensors and actuators.
         self.__sensors = {
@@ -91,6 +92,8 @@ class Node:
             'cargo_hatch': 0, # 1 => open
             'diffuser': 0, # 1 => diffused
         }
+
+        self.neighbors = {}
 
         # NDN
         self.content_store = {
@@ -121,52 +124,75 @@ class Node:
             thread_hci = threading.Thread(target=self.human_computer_interface, args=())
             thread_hci.start()
 
+    def add_to_pit(self, content_name, face):
+        if not content_name in self.pending_interest_table:
+            self.pending_interest_table[content_name] = []
+        self.pending_interest_table[content_name].append(face)    
+
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
         sender_host, sender_port, sender_name = content_name[0].split('-')
         sender_port = int(sender_port)
-        data_name = content_name[1:len(content_name)-1]
+        interest_name = content_name[1:len(content_name)-1] # [<marker>, neighbor]
         timestamp = content_name[-1]
-        # print(f'[{self.name}] Received interest packet = {packet}.')
+        print(f'[{self.name}] Received interest packet = {packet}.')
 
-        # Neighbor discovery (not routing).
-        if 'neighbor' in data_name: # Only a primary node ever receives this.
-            neighbor_marker = f'marker/{data_name[1]}'
-            if not neighbor_marker in self.forwarding_information_base:
-                self.forwarding_information_base[neighbor_marker] = {
+        # Neighbor discovery.
+        if 'neighbor' in interest_name: # Only a primary node ever receives this.
+            if not f'marker/{interest_name[0]}' in self.forwarding_information_base:
+
+                # Add to neighbor table and FIB.
+                self.neighbors[sender_name] = {
                     'host': sender_host, 
-                    'port': sender_port,
-                    'name': sender_name
+                    'port': int(sender_port)
                 }
+                self.forwarding_information_base[f'marker/{interest_name[0]}'] = sender_name
+                if len(self.neighbors) > 2: # Max 2 neighbors only.
+                    n = next(iter(self.neighbors))
+                    self.neighbors.pop(n)
+                    for marker, name in self.forwarding_information_base.items():
+                        if name == n:
+                            self.forwarding_information_base.pop(marker)
+                            break
+                
+                # Add to PIT.
+                self.add_to_pit(interest_name[1], (sender_name, interest_name[0]))
                 print(f'[{self.name}] Discovered neighbor {sender_name}.')
-            
-            eligible_neighbors = []
-            for name, face in self.forwarding_information_base.items():
-                if 'marker' in name:
-                    marker = name[name.find('/')+1:]
-                    if marker != self.marker and marker != neighbor_marker:
-                        eligible_neighbors.append({
-                            'content_name': f'{self.host}-{self.port}-{self.name}/neighbor',
-                            'data': {
-                                'marker': marker, 
-                                'name': face['name'],
-                                'host': face['host'],
-                                'port': face['port']
-                            }
-                        })
-            if len(eligible_neighbors) > 0:
-                neighbor = eligible_neighbors[
-                    random.randint(0, len(eligible_neighbors)-1)
-                ]
-                message = make_data_packet(
-                    content_name=neighbor['content_name'],
-                    data=neighbor['data']
-                )
-                send_tcp(
-                    message=message,
-                    host=sender_host,
-                    port=sender_port
-                )
+
+                # Check FIB to see if there exists a suitable neighbor for
+                # any interested party in the PIT. If so, send a data packet to them
+                # with this suitable neighbor's information and remove corresponding
+                # interest from PIT.
+                interested_parties = self.pending_interest_table[interest_name[1]]
+                to_pop = []
+                for i in range(1, len(interested_parties)+1):
+                    pit_name_marker = interested_parties[-1*i]
+                    for j in range(1, len(self.forwarding_information_base.keys())+1): 
+                        fib_marker_name = list(self.forwarding_information_base.items())[-1*j]
+                        if f'marker/{pit_name_marker[1]}' != fib_marker_name[0]:
+                            # print(f'marker/{pit_name_marker[1]} != {marker}', pit_name_marker[0], self.neighbors[pit_name_marker[0]])
+                            message = make_data_packet(
+                                content_name=f'{self.host}-{self.port}-{self.name}/{interest_name[1]}',
+                                data={
+                                    'name': fib_marker_name[1],
+                                    'marker': fib_marker_name[0],
+                                    'host': self.neighbors[fib_marker_name[1]]['host'],
+                                    'port': self.neighbors[fib_marker_name[1]]['port']
+                                }
+                            )
+                            send_tcp(
+                                message=message,
+                                host=self.neighbors[pit_name_marker[0]]['host'],
+                                port=self.neighbors[pit_name_marker[0]]['port']
+                            )
+                            to_pop.append(pit_name_marker)
+                            break
+                for v in to_pop: 
+                    interested_parties.pop(interested_parties.index(v))
+                if len(interested_parties) == 0:
+                    self.pending_interest_table.pop(interest_name[1])
+                else:
+                    self.pending_interest_table[interest_name[1]] = interested_parties
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -174,57 +200,47 @@ class Node:
         sender_port = int(sender_port)
         data_name = content_name[1:len(content_name)-1]
         timestamp = content_name[-1]
-        # print(f'[{self.name}] Received data packet = {packet}.')
+        print(f'[{self.name}] Received data packet = {packet}.')
         
         # Data packet is of type beacon.
         if 'beacon' in data_name:
             data = packet['data']
             self.set_beacon(data['position'])
-            self.forwarding_information_base[f'marker/{CONFIG["primary_marker"]}'] = {
+            self.neighbors[sender_name] = {
                 'host': sender_host,
-                'port': sender_port,
-                'name': sender_name
+                'port': sender_port
             }
-            
+            self.forwarding_information_base[
+                f'marker/{CONFIG["primary_marker"]}'
+            ] = sender_name
+
         # Neighbor discovery.
         if 'neighbor' in data_name:
-            # Data format = {'marker':str, 'name':str, 'host':str, 'port':int}
-            data = packet['data']
+            data = packet['data'] #  {'marker':str, 'name':str, 'host':str, 'port':int}
             if (
                 not (f'marker/{data["marker"]}' in self.forwarding_information_base)
                 and data["marker"] != self.marker
             ):
-                self.forwarding_information_base[f'marker/{data["marker"]}'] = {
+                # Add to neighbors and FIB.
+                self.neighbors[data['name']] = {
                     'host': data['host'],
-                    'port': data['port'],
-                    'name': data['name']
+                    'port': data['port']
                 }
+                self.forwarding_information_base[f'marker/{data["marker"]}'] = data['name']
                 print(f'[{self.name}] Discovered neighbor {data["name"]}.')
 
     def neighbor_discovery(self):
         ''' Discovers all neighbors. '''
-        print(f'[{self.name}] Discovering 3 neighbors ...')
+        # print(f'[{self.name}] Discovering 3 neighbors ...')
+        message = f'{self.host}-{self.port}-{self.name}/{self.marker}/neighbor'
+        neighbor_first = self.neighbors[list(self.neighbors.keys())[0]]
+        send_tcp(
+            message=make_interest_packet(message),
+            host=neighbor_first['host'],
+            port=neighbor_first['port']
+        )
         
-        while len(self.forwarding_information_base) < CONFIG['num_neighbors']:
-            primary_host = self.forwarding_information_base[
-                f'marker/{CONFIG["primary_marker"]}'
-            ]['host']
-            primary_port = int(self.forwarding_information_base[
-                f'marker/{CONFIG["primary_marker"]}'
-            ]['port'])
-            message = f'{self.host}-{self.port}-{self.name}/neighbor/{self.marker}'
-            send_tcp(
-                message=make_interest_packet(message),
-                host=primary_host,
-                port=primary_port
-            )
-            time.sleep(1)
-
-        print(f'[{self.name}] Neighbor discovery complete.')
-        
-        
-
-    def handle_incoming(self, conn, addr):
+    def handle_incoming(self, conn):
         ''' Handle received data and send appropriate response. '''
         message = conn.recv(1024).decode('utf-8')
         packet = json.loads(message)
@@ -241,7 +257,7 @@ class Node:
         print(f'[{self.name}] Listening on {self.host} port {self.port} ...')
         while True:
             socket_connection, address = self.socket.accept()
-            self.handle_incoming(socket_connection, address)
+            self.handle_incoming(socket_connection)
 
     def move(self):
         while True:
