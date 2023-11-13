@@ -106,12 +106,11 @@ class Node:
 
         if self.marker == CONFIG['primary_marker']: 
             self.__actuators['beacon'] = 0 # 1 => active.
-            self.num_neighbors_seen = 0
 
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
-        # Listen thread.
+        # TCP listen thread.
         thread_listen = threading.Thread(target=self.listen, args=())
         thread_listen.start()
 
@@ -225,6 +224,63 @@ class Node:
             return self.content_store[content_name]
         else: return None
 
+    def initiate_attack_sequence(self):
+        ''' Attack protocol that each bot executes
+            to destroy cancer cells. '''
+        self.set_actuator('cargo_hatch', 1)
+        print(f'[{self.name}]: Preparing to self-destruct.')
+        time.sleep(2)
+        self.set_actuator('self_destruct', 1)
+    
+    def initiate_state_reset(self):
+        ''' Protocol that bots execute to untether and 
+            continue operation. '''
+        
+        ## Reset all state variables.
+        # self.knowledge = {m:-1 for m in CONFIG['markers']}
+        # self.neighbors = {}
+        # self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
+        # self.pending_interest_table = {}
+        # self.forwarding_information_base = {}
+        # self.set_actuator('tethers', 0)
+        # self.set_actuator('self_destruct', 0)
+        # self.set_actuator('cargo_hatch', 0)
+        # self.set_actuator('diffuser', 0)
+        # self.set_sensors('beacon', -1)
+        # self.set_sensors('cancer_marker', 0)
+        
+        # if self.marker == CONFIG['primary_marker']: 
+        #     self.set_actuator('beacon', 0)
+        print(f'[{self.name}] State reset.')
+        # TO DO
+
+    def handle_decision(self, decision):
+        ''' Take action based on decision made. '''
+        time.sleep(3) # Sleep to allow time for any pending communications.
+        if decision == 'cancer':
+            self.initiate_attack_sequence()
+        else: # decision == 'healthy'
+            self.initiate_state_reset()
+
+    def satisfy_interest(self, interest, data_packet):
+        ''' Handles desired data packet. '''
+        data = data_packet['data']
+        
+        # Decision making.
+        # If a peer cancer marker data is available, then 
+        # update own knowledge and see if a decision can be made.
+        if 'marker' in interest:
+            # data = {'cancer_marker': 'marker': <marker type>, 'value': <marker value>}
+            self.knowledge[data['cancer_marker']['marker']] = data['cancer_marker']['value']
+            marker_values = list(self.knowledge.values())
+            # If all marker values are known, share decision with all peers.
+            if marker_values.count(-1) == 0:
+                decision = 'healthy'
+                if sum(marker_values) == len(CONFIG['markers']):
+                    decision = 'cancer'
+                print(f'[{self.name}] Decision = {decision}!')
+                self.handle_decision(decision)
+
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
         sender_host, sender_port, sender_name = content_name[0].split('-')
@@ -254,7 +310,6 @@ class Node:
                     incoming_face_name=(sender_name, sender_marker_interest[0])
                 )
                 print(f'[{self.name}] Discovered neighbor {sender_name}.')
-                self.num_neighbors_seen += 1
 
                 # Check FIB to see if there exists a suitable neighbor for
                 # any interested party in the PIT. If so, send a data packet to them
@@ -343,49 +398,8 @@ class Node:
                             host=self.neighbors[name]['host'],
                             port=self.neighbors[name]['port']
                         )
-                    self.pending_interest_table.pop(interest)
+                    self.pending_interest_table.pop(interest)                
 
-    def initiate_attack_sequence(self):
-        ''' Attack protocol that each bot executes
-            to destroy cancer cells. '''
-        self.set_actuator('cargo_hatch', 1)
-        print(f'[{self.name}]: Preparing to self-destruct.')
-        time.sleep(2)
-        self.set_actuator('self_destruct', 1)
-    
-    def initiate_state_reset(self):
-        ''' Protocol that bots execute to untether and 
-            continue operation. '''
-        # TO DO
-        pass
-
-    def handle_decision(self, decision):
-        ''' Take action based on decision made. '''
-        time.sleep(3) # Sleep to allow time for any pending communications.
-        if decision == 'cancer':
-            self.initiate_attack_sequence()
-        else: 
-            self.initiate_state_reset()
-
-    def satisfy_interest(self, interest, data_packet):
-        ''' Handles desired data packet. '''
-        data = data_packet['data']
-        
-        # Decision making.
-        # If a peer cancer marker data is available, then 
-        # update own knowledge and see if a decision can be made.
-        if 'marker' in interest:
-            # data = {'cancer_marker': 'marker': <marker type>, 'value': <marker value>}
-            self.knowledge[data['cancer_marker']['marker']] = data['cancer_marker']['value']
-            marker_values = list(self.knowledge.values())
-            # If all marker values are known, share decision with all peers.
-            if marker_values.count(-1) == 0:
-                decision = 'healthy'
-                if sum(marker_values) == len(CONFIG['markers']):
-                    decision = 'cancer'
-                print(f'[{self.name}] Decision = {decision}!')
-                self.handle_decision(decision)
-                
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
         sender_host, sender_port, sender_name = content_name[0].split('-')
@@ -499,11 +513,6 @@ class Node:
             if new_position >= CONFIG['blood_stream_length']: 
                 new_position = 0
             self.position = new_position
-            # print(f'[{self.name}] Position = {int(
-            #     CONFIG['blood_speed']
-            #     + self.__actuators['head_rotator']
-            #     + self.__actuators['propeller_rotator']
-            # )}.')
             if (
                 self.marker != CONFIG['primary_marker']
                 and self.__sensors['beacon'] == self.position
@@ -636,6 +645,7 @@ class Node:
                 self.marker != CONFIG['primary_marker']
                 and self.__sensors['beacon'] < 0 
             ):
+                print('THREADS:', threading.active_count())
                 thread_search_beacon = threading.Thread(target=self.search_beacon, args=())
                 thread_search_beacon.start()
 
