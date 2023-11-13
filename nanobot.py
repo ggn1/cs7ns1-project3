@@ -110,7 +110,9 @@ class Node:
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
-        # TCP listen thread.
+        # THREADS
+
+        # Listens for connection to self server.
         thread_listen = threading.Thread(target=self.listen, args=())
         thread_listen.start()
 
@@ -118,11 +120,15 @@ class Node:
         thread_move = threading.Thread(target=self.move, args=())
         thread_move.start()
 
-        # If this is a primary bot, begin sensing environment for
-        # primary cancer marker.
+        # If this is a primary bot, scan the environment for primary cancer marker.
         if self.marker == CONFIG['primary_marker']:
-            thread_hci = threading.Thread(target=self.sense_primary_marker, args=())
-            thread_hci.start()
+            thread_primary_marker = threading.Thread(target=self.sense_primary_marker, args=())
+            thread_primary_marker.start()
+
+        # Else scan the environment for a beacon.
+        else:
+            thread_beacon = threading.Thread(target=self.search_beacon, args=())
+            thread_beacon.start()
 
     def sense_cancer_marker(self):
         ''' Returns latest value in sensor. '''
@@ -235,24 +241,21 @@ class Node:
     def initiate_state_reset(self):
         ''' Protocol that bots execute to untether and 
             continue operation. '''
-        
-        ## Reset all state variables.
-        # self.knowledge = {m:-1 for m in CONFIG['markers']}
-        # self.neighbors = {}
-        # self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
-        # self.pending_interest_table = {}
-        # self.forwarding_information_base = {}
-        # self.set_actuator('tethers', 0)
-        # self.set_actuator('self_destruct', 0)
-        # self.set_actuator('cargo_hatch', 0)
-        # self.set_actuator('diffuser', 0)
-        # self.set_sensors('beacon', -1)
-        # self.set_sensors('cancer_marker', 0)
-        
+        # Reset all state variables.
+        self.knowledge = {m:-1 for m in CONFIG['markers']}
+        self.neighbors = {}
+        self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
+        self.pending_interest_table = {}
+        self.forwarding_information_base = {}
+        self.set_actuator('tethers', 0)
+        self.set_actuator('self_destruct', 0)
+        self.set_actuator('cargo_hatch', 0)
+        self.set_actuator('diffuser', 0)
         # if self.marker == CONFIG['primary_marker']: 
         #     self.set_actuator('beacon', 0)
+        self.set_sensors('beacon', -1)
+        self.set_sensors('cancer_marker', 0)
         print(f'[{self.name}] State reset.')
-        # TO DO
 
     def handle_decision(self, decision):
         ''' Take action based on decision made. '''
@@ -520,19 +523,28 @@ class Node:
             ): self.set_actuator('tethers', 1)
 
     def search_beacon(self):
-        print(f'[{self.name}] Searching for beacon ...')
-        while (
-            self.__sensors['beacon'] < 0 
-            and self.marker != CONFIG['primary_marker']
-        ):
-            time.sleep(1)
-            content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
-            send_tcp(
-                message=make_interest_packet(content_name=content_name), 
-                host=CONFIG['rendezvous_server'][0],
-                port=CONFIG['rendezvous_server'][1]
-            )
-        print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
+        ''' If beacon sensor of a non-primary bot 
+            does not contain a position value indicating
+            that this bot has picked up a beacon,
+            search for a beacon.
+        '''
+        beacon_found = False
+        while True:
+            if (self.marker != CONFIG['primary_marker'] and self.__sensors['beacon'] < 0):
+                print(f'[{self.name}] Searching for beacon ...')
+                time.sleep(1)
+                content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
+                send_tcp(
+                    message=make_interest_packet(content_name=content_name), 
+                    host=CONFIG['rendezvous_server'][0],
+                    port=CONFIG['rendezvous_server'][1]
+                )
+                if beacon_found:
+                    beacon_found = False
+            else:
+                if not beacon_found:
+                    print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
+                    beacon_found = True
 
     def start_decision_making(self):
         # Get marker value for each marker.
@@ -638,16 +650,6 @@ class Node:
         
         if sensor == 'beacon':
             self.__sensors['beacon'] = value
-            # If beacon sensor of a non-primary bot 
-            # does not contain the position of a primary bot,
-            # then search for a beacon. 
-            if (
-                self.marker != CONFIG['primary_marker']
-                and self.__sensors['beacon'] < 0 
-            ):
-                print('THREADS:', threading.active_count())
-                thread_search_beacon = threading.Thread(target=self.search_beacon, args=())
-                thread_search_beacon.start()
 
         if sensor == 'cancer_marker':
             self.__sensors['cancer_marker'] = value
@@ -667,11 +669,14 @@ class Node:
                     self.set_actuator('beacon', 0)
 
     def sense_primary_marker(self):
-        while self.__sensors['cancer_marker'] == 0:
-            cancer_marker_value = input('Primary cancer marker detected? (1): ')
-            self.set_sensors('cancer_marker', int(cancer_marker_value))
+        while True:
+            if (
+                self.marker == CONFIG['primary_marker']
+                and self.__sensors['cancer_marker'] == 0
+            ):
+                cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                self.set_sensors('cancer_marker', int(cancer_marker_value))
         
 if __name__ == '__main__':
     args = setup_argparser()
     bot = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
-    # print('No. of threads active =', threading.active_count())
