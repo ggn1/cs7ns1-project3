@@ -54,31 +54,42 @@ class Server:
         timestamp = content_name[-1]
         self.ndn_ip[sender_name] = (sender_host, sender_port)
 
-        # Add this interest to the PIT.
-        if (data_name in self.pending_interest_table): # data_name exists
-            self.pending_interest_table[data_name].add(sender_name)
-        else: # data_name does not exist
-            self.pending_interest_table[data_name] = set([sender_name])
+        if data_name == 'beacon/on':
+            # Add this interest to the PIT.
+            if (data_name in self.pending_interest_table): # data_name exists
+                self.pending_interest_table[data_name].add(sender_name)
+            else: # data_name does not exist
+                self.pending_interest_table[data_name] = set([sender_name])
 
-        # Search Content Store
-        if (data_name in self.content_store): # data in CS
-            interested = self.pending_interest_table[data_name]
-            for name in interested:
-                host, port = self.ndn_ip[name] 
-                send_tcp(
-                    message=json.dumps(self.content_store[data_name]),
-                    host=host, port=int(port)
-                )
-            del self.pending_interest_table[data_name]
+            # Search Content Store
+            if (data_name in self.content_store): # data in CS
+                interested = self.pending_interest_table[data_name]
+                for name in interested:
+                    host, port = self.ndn_ip[name] 
+                    send_tcp(
+                        message=json.dumps(self.content_store[data_name]),
+                        host=host, port=int(port)
+                    )
+                del self.pending_interest_table[data_name]
+
+        if data_name == 'beacon/off':
+            packet = self.content_store['beacon/on']
+            print(packet)
+            if (
+                packet['data']['host'] == sender_host 
+                and packet['data']['port'] == sender_port
+            ): self.content_store.pop('beacon/on')
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
         sender_host, sender_port, sender_name = content_name[0].split('-')
         data_name = '/'.join(content_name[1:len(content_name)-1])
         timestamp = content_name[-1]
-        self.ndn_ip[sender_name] = (sender_host, sender_port)
-        self.content_store[data_name] = packet
-        print(f'[RENDEZVOUS SERVER] Added {data_name} to content store.')
+
+        if data_name == 'beacon/on':
+            self.ndn_ip[sender_name] = (sender_host, sender_port)
+            self.content_store[data_name] = packet
+            print(f'[RENDEZVOUS SERVER] Added {data_name} to content store.')
 
     def handle_incoming(self, conn, addr):
         ''' Handle received data and send appropriate response. '''

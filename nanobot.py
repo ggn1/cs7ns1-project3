@@ -107,6 +107,7 @@ class Node:
 
         if self.marker == CONFIG['primary_marker']: 
             self.__actuators['actuator_beacon'] = 0 # 1 => active.
+            self.num_neighbors_seen = 0
 
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
@@ -137,7 +138,7 @@ class Node:
         else: 
             self.forwarding_information_base[content_name][incoming_face_name] = 0
 
-    def get_from_fib(self, content_name):
+    def get_from_fib(self, content_name, get_cost=False):
         ''' Gets lest costly neighbor. '''
         cur = self.forwarding_information_base[content_name] # {neighbor1:cost, neighbor2:cost, ...}
         if content_name in self.forwarding_information_base:
@@ -145,7 +146,7 @@ class Node:
             for neighbor, cost in cur.items():
                 if not least_costly: least_costly = (neighbor, cost)
                 elif cost < least_costly[1]: least_costly = (neighbor, cost)
-            return least_costly[0]
+            return least_costly[0] if not get_cost else least_costly
         else: return None
 
     def handle_interest_packet(self, packet):
@@ -154,7 +155,7 @@ class Node:
         sender_port = int(sender_port)
         sender_marker_interest = content_name[1:len(content_name)-1] # [<marker>, neighbor]
         timestamp = content_name[-1]
-        print(f'[{self.name}] Received interest packet = {packet}.')
+        # print(f'[{self.name}] Received interest packet = {packet}.')
 
         # Neighbor discovery.
         if 'neighbor' in sender_marker_interest: # Only a primary node ever receives this.
@@ -181,6 +182,22 @@ class Node:
                 # Add to PIT.
                 self.add_to_pit(sender_marker_interest[1], (sender_name, sender_marker_interest[0]))
                 print(f'[{self.name}] Discovered neighbor {sender_name}.')
+                self.num_neighbors_seen += 1
+                
+                # Primary bot neighbor discovery complete.
+                # So, turn off beacon and start 
+                # decision making protocol.
+                if self.num_neighbors_seen == 4:
+                    send_tcp(
+                        message=make_interest_packet(
+                            content_name=f'{self.host}-{self.port}-{self.name}/beacon/off'
+                        ), 
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
+                    self.set_beacon(new_value=-1)
+                    print(f'[{self.name}] Neighbor discovery complete. Turned off beacon.')
+                    # TO DO
 
                 # Check FIB to see if there exists a suitable neighbor for
                 # any interested party in the PIT. If so, send a data packet to them
@@ -227,7 +244,7 @@ class Node:
         sender_port = int(sender_port)
         data_name = content_name[1:len(content_name)-1]
         timestamp = content_name[-1]
-        print(f'[{self.name}] Received data packet = {packet}.')
+        # print(f'[{self.name}] Received data packet = {packet}.')
         
         # Data packet is of type beacon.
         if 'beacon' in data_name:
@@ -258,6 +275,10 @@ class Node:
                     incoming_face_name=data['name']
                 )
                 print(f'[{self.name}] Discovered neighbor {data["name"]}.')
+                
+                # Bot neighbor discovery complete.
+                # So, start decision making protocol.
+                # TO DO
 
     def neighbor_discovery(self):
         ''' Discovers all neighbors. '''
@@ -310,7 +331,7 @@ class Node:
             and self.marker != CONFIG['primary_marker']
         ):
             time.sleep(1)
-            content_name = f'{self.host}-{self.port}-{self.name}/beacon'
+            content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
             send_tcp(
                 message=make_interest_packet(content_name=content_name), 
                 host=CONFIG['rendezvous_server'][0],
@@ -348,7 +369,7 @@ class Node:
                 self.__actuators['beacon'] = 0
             else:
                 self.__actuators['beacon'] = 1
-                content_name = f'{self.host}-{self.port}-{self.name}/beacon'
+                content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
                 send_tcp(
                     message=make_data_packet(
                         content_name=content_name,
