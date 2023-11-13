@@ -13,9 +13,6 @@ from protocol import make_data_packet
 def setup_argparser():
     ''' Adds arguments.
         --host
-    '''
-    ''' Adds arguments.
-        --host
         --port
         --marker
         --name
@@ -82,14 +79,14 @@ class Node:
         
         # Sensors and actuators.
         self.__sensors = {
-            'cancer_marker': -1, # 1 => detected
+            'cancer_marker': 0, # 1 => detected
             'beacon': -1 # position of beacon detected
         }
 
         self.__actuators = {
             'tethers': 0, # 1 => extended
-            'head_rotator': 0, # 1 => accelself.content_storeeration (+ve = forward, -ve = backward)
-            'propeller_rotator': 0, # 1 => acceleration (+ve = forward, -ve = backward)
+            'head_rotator': 0.25, # acceleration (+ve = forward, -ve = backward)
+            'propeller_rotator': 0.25, # acceleration (+ve = forward, -ve = backward)
             'self_destruct': 0, # 1 => detonated
             'cargo_hatch': 0, # 1 => open
             'diffuser': 0, # 1 => diffused
@@ -104,11 +101,11 @@ class Node:
         self.pending_interest_table = {}
         self.forwarding_information_base = {}
 
-        self.set_beacon(-1)
-        self.set_cancer_marker(0)
+        self.set_sensors('beacon', -1)
+        self.set_sensors('cancer_marker', 0)
 
         if self.marker == CONFIG['primary_marker']: 
-            self.__actuators['actuator_beacon'] = 0 # 1 => active.
+            self.__actuators['beacon'] = 0 # 1 => active.
             self.num_neighbors_seen = 0
 
         # Position in blood stream.
@@ -122,9 +119,10 @@ class Node:
         thread_move = threading.Thread(target=self.move, args=())
         thread_move.start()
 
-        # Human computer interaction thread.
+        # If this is a primary bot, begin sensing environment for
+        # primary cancer marker.
         if self.marker == CONFIG['primary_marker']:
-            thread_hci = threading.Thread(target=self.human_computer_interface, args=())
+            thread_hci = threading.Thread(target=self.sense_primary_marker, args=())
             thread_hci.start()
 
     def sense_cancer_marker(self):
@@ -300,14 +298,7 @@ class Node:
                 # Primary bot neighbor discovery complete.
                 # So, turn off beacon and start 
                 # decision making protocol.
-                send_tcp(
-                    message=make_interest_packet(
-                        content_name=f'{self.host}-{self.port}-{self.name}/beacon/off'
-                    ), 
-                    host=CONFIG['rendezvous_server'][0],
-                    port=CONFIG['rendezvous_server'][1]
-                )
-                self.set_beacon(new_value=-1)
+                self.set_actuator('beacon', 0)
                 print(f'[{self.name}] Neighbor discovery complete. Turned off beacon.')
                 print(f'[{self.name}] FIB = {self.forwarding_information_base}.')
                 self.start_decision_making()
@@ -354,19 +345,6 @@ class Node:
                         )
                     self.pending_interest_table.pop(interest)
 
-    def set_actuator(self, actuator, value):
-        ''' Sets value of actuators. '''
-        self.__actuators[actuator] = value
-        if actuator == 'cargo_hatch':
-            if value == 1: 
-                print(f'[{self.name}]: Hatch open. Thrombin deployed.')
-            else:
-                print(f'[{self.name}]: Hatch closed.')
-        if actuator == 'self_destruct':
-            if value == 1:
-                print(f'Detonated at position {self.position}.')
-                os.kill(os.getpid(), signal.SIGTERM)
-
     def initiate_attack_sequence(self):
         ''' Attack protocol that each bot executes
             to destroy cancer cells. '''
@@ -378,6 +356,7 @@ class Node:
     def initiate_state_reset(self):
         ''' Protocol that bots execute to untether and 
             continue operation. '''
+        # TO DO
         pass
 
     def handle_decision(self, decision):
@@ -418,7 +397,7 @@ class Node:
         # Data packet is of type beacon.
         if 'beacon' in data_name:
             data = packet['data']
-            self.set_beacon(data['position'])
+            self.set_sensors('beacon', data['position'])
             self.neighbors[sender_name] = {
                 'host': sender_host,
                 'port': sender_port
@@ -512,16 +491,24 @@ class Node:
     def move(self):
         while True:
             time.sleep(1)
-            new_position = self.position + CONFIG['blood_speed'] + (
-                self.__actuators['head_rotator'] 
-                + self.__actuators['propeller_rotator'] 
+            new_position = self.position + int(
+                CONFIG['blood_speed']
+                + self.__actuators['head_rotator']
+                + self.__actuators['propeller_rotator']
             )
-            if new_position >= CONFIG['blood_stream_length']: new_position = 0
-            self.position = int(new_position)
+            if new_position >= CONFIG['blood_stream_length']: 
+                new_position = 0
+            self.position = new_position
+            # print(f'[{self.name}] Position = {int(
+            #     CONFIG['blood_speed']
+            #     + self.__actuators['head_rotator']
+            #     + self.__actuators['propeller_rotator']
+            # )}.')
             if (
-                self.__sensors['beacon'] == self.position
+                self.marker != CONFIG['primary_marker']
+                and self.__sensors['beacon'] == self.position
                 and self.__actuators['tethers'] != 1
-            ): self.handle_actuator_tether(tether=1)
+            ): self.set_actuator('tethers', 1)
 
     def search_beacon(self):
         print(f'[{self.name}] Searching for beacon ...')
@@ -537,15 +524,6 @@ class Node:
                 port=CONFIG['rendezvous_server'][1]
             )
         print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
-
-    def set_beacon(self, new_value):
-        self.__sensors['beacon'] = new_value
-        if (
-            self.__sensors['beacon'] < 0 
-            and self.marker != CONFIG['primary_marker']
-        ):
-            thread_search_beacon = threading.Thread(target=self.search_beacon, args=())
-            thread_search_beacon.start()
 
     def start_decision_making(self):
         # Get marker value for each marker.
@@ -571,71 +549,119 @@ class Node:
                 )
                 print(f'[{self.name}] Sent {interest} to {fwd_neighbor}.')
             else: self.knowledge[self.marker] = marker_value
+   
+    def set_actuator(self, actuator, value):
+        ''' Sets value of actuators. '''
+        self.__actuators[actuator] = value
+
+        if actuator == 'tethers':
+            if value == 1:
+                # Turn off rotators to slow down and
+                # extend tethers to fix itself to potentially cancerous tissue.
+                self.__actuators['head_rotator'] = 0
+                self.__actuators['propeller_rotator'] = 0
+                self.__actuators['tethers'] = 1
+                print(f'[{self.name}] Tethered to {self.position}.')
                 
-    def handle_actuator_tether(self, tether):
-        if tether == 0:
-            self.__actuators['tethers'] = 0
-            self.__actuators['head_rotator'] = 0
-            self.__actuators['propeller_rotator'] = 0
-        else:
-            self.__actuators['tethers'] = 1
-            self.__actuators['head_rotator'] = -0.5
-            self.__actuators['propeller_rotator'] = -0.5
-            print(f'[{self.name}] Tethered to {self.position}.')
-            
-            # Non primary nodes initiate neighbor discovery.
-            if self.marker != CONFIG['primary_marker']:
-                if self.knowledge[self.marker] == -1:
-                    cancer_marker_value = int(input('Sensing cancer marker value:'))
-                    self.set_cancer_marker(cancer_marker_value)
-                self.neighbor_discovery()
+                # Non primary nodes take sensor reading and 
+                # initiate neighbor discovery.
+                if self.marker != CONFIG['primary_marker']:
+                    if self.knowledge[self.marker] == -1: # Take cancer marker sensor reading.
+                        cancer_marker_value = int(input('Sensing cancer marker value: '))
+                        self.set_sensors('cancer_marker', cancer_marker_value)
+                    self.neighbor_discovery()
+            else: # value == 0
+                # Tethers retract and rotators apply positive
+                # acceleration. Bot moves with blood flow.
+                self.__actuators['tethers'] = 0
+                self.__actuators['head_rotator'] = 0.25
+                self.__actuators['propeller_rotator'] = 0.25
+        
+        if actuator == 'beacon':
+            if 'beacon' in self.__actuators:
+                # Activate beacon (send a data packet to Rendezvous server
+                # marking position of primary bot that has detected the 
+                # primary cancer marker.)
+                if value == 1:
+                    self.__actuators['beacon'] = value
+                    content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
+                    send_tcp(
+                        message=make_data_packet(
+                            content_name=content_name,
+                            data={
+                                'position': self.position, 
+                                'host': self.host, 
+                                'port':self.port
+                            }
+                        ),
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
+                
+                # Turn the beacon off if it was previously on.
+                # (Send an interest packet to Rendezvous server
+                # marking turn off of beacon by this particular node.)
+                else: # value == 0
+                    if self.__actuators['beacon'] == 1:
+                        self.__actuators['beacon'] = value
+                        send_tcp(
+                            message=make_interest_packet(
+                                content_name=f'{self.host}-{self.port}-{self.name}/beacon/off'
+                            ), 
+                            host=CONFIG['rendezvous_server'][0],
+                            port=CONFIG['rendezvous_server'][1]
+                        )
 
-    def handle_actuator_beacon(self):
-        if 'actuator_beacon' in self.__actuators:
-            if self.__actuators['tethers'] == 0:
-                self.__actuators['beacon'] = 0
+        if actuator == 'cargo_hatch':
+            if value == 1: 
+                print(f'[{self.name}]: Hatch open. Thrombin deployed.')
             else:
-                self.__actuators['beacon'] = 1
-                content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
-                send_tcp(
-                    message=make_data_packet(
-                        content_name=content_name,
-                        data={
-                            'position': self.position, 
-                            'host': self.host, 
-                            'port':self.port
-                        }
-                    ),
-                    host=CONFIG['rendezvous_server'][0],
-                    port=CONFIG['rendezvous_server'][1]
-                )
-    
-    def set_cancer_marker(self, new_value):
-        self.__sensors['cancer_marker'] = new_value
-        self.add_to_cs(f'marker/{self.marker}', self.__sensors['cancer_marker'])
-        if self.marker == CONFIG['primary_marker']:
-            if self.__sensors['cancer_marker'] == 1:
-                self.handle_actuator_tether(1)
-            else: self.handle_actuator_tether(0)
-            self.handle_actuator_beacon()
-            
-    def set_sensors(self, new):
-        for key, value in new.items():
-            if key == 'beacon':
-                self.set_beacon(value)
-                print(f'[{self.port}]: Updated beacon to {value}.')
-            if key == 'cancer_marker':
-                self.set_cancer_marker(value)
-                print(f'[{self.port}]: Updated cancer_marker to {value}.')
+                print(f'[{self.name}]: Hatch closed.')
+        
+        if actuator == 'self_destruct':
+            if value == 1:
+                print(f'Detonated at position {self.position}.')
+                os.kill(os.getpid(), signal.SIGTERM)
+        
+    def set_sensors(self, sensor, value):
+        ''' Sets values for each sensor and initiates
+            appropriate behavior. '''
+        
+        if sensor == 'beacon':
+            self.__sensors['beacon'] = value
+            # If beacon sensor of a non-primary bot 
+            # does not contain the position of a primary bot,
+            # then search for a beacon. 
+            if (
+                self.marker != CONFIG['primary_marker']
+                and self.__sensors['beacon'] < 0 
+            ):
+                thread_search_beacon = threading.Thread(target=self.search_beacon, args=())
+                thread_search_beacon.start()
 
-    def human_computer_interface(self):
-        while True:
-            update = input('Update Sensor Values:')
-            print('UPDATE =', update)
-            update = json.loads(update)
-            self.set_sensors(update)
+        if sensor == 'cancer_marker':
+            self.__sensors['cancer_marker'] = value
+
+            # Update the value in content store with latest
+            # marker value detected.
+            self.add_to_cs(f'marker/{self.marker}', self.__sensors['cancer_marker'])
+
+            # If a primary bot has detected a positive value for
+            # its cancer marker, then tether to the current spot.
+            if self.marker == CONFIG['primary_marker']:
+                if self.__sensors['cancer_marker'] == 1:
+                    self.set_actuator('tethers', 1)
+                    self.set_actuator('beacon', 1)
+                else: 
+                    self.set_actuator('tethers', 0)
+                    self.set_actuator('beacon', 0)
+
+    def sense_primary_marker(self):
+        while self.__sensors['cancer_marker'] == 0:
+            cancer_marker_value = input('Primary cancer marker detected? (1): ')
+            self.set_sensors('cancer_marker', int(cancer_marker_value))
         
 if __name__ == '__main__':
     args = setup_argparser()
-    me = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
-    print('No. of threads active =', threading.active_count())
+    bot = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
+    # print('No. of threads active =', threading.active_count())
