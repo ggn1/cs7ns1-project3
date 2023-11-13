@@ -124,55 +124,82 @@ class Node:
             thread_hci = threading.Thread(target=self.human_computer_interface, args=())
             thread_hci.start()
 
-    def add_to_pit(self, content_name, face):
+    def add_to_pit(self, content_name, outgoing_face_name):
         if not content_name in self.pending_interest_table:
             self.pending_interest_table[content_name] = []
-        self.pending_interest_table[content_name].append(face)    
+        self.pending_interest_table[content_name].append(outgoing_face_name)    
+
+    def add_to_fib(self, content_name, incoming_face_name):
+        if not content_name in self.forwarding_information_base:
+            self.forwarding_information_base[content_name] = {}
+        if incoming_face_name in self.forwarding_information_base[content_name]:
+            self.forwarding_information_base[content_name][incoming_face_name] += 1
+        else: 
+            self.forwarding_information_base[content_name][incoming_face_name] = 0
+
+    def get_from_fib(self, content_name):
+        ''' Gets lest costly neighbor. '''
+        cur = self.forwarding_information_base[content_name] # {neighbor1:cost, neighbor2:cost, ...}
+        if content_name in self.forwarding_information_base:
+            least_costly = None
+            for neighbor, cost in cur.items():
+                if not least_costly: least_costly = (neighbor, cost)
+                elif cost < least_costly[1]: least_costly = (neighbor, cost)
+            return least_costly[0]
+        else: return None
 
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
         sender_host, sender_port, sender_name = content_name[0].split('-')
         sender_port = int(sender_port)
-        interest_name = content_name[1:len(content_name)-1] # [<marker>, neighbor]
+        sender_marker_interest = content_name[1:len(content_name)-1] # [<marker>, neighbor]
         timestamp = content_name[-1]
         print(f'[{self.name}] Received interest packet = {packet}.')
 
         # Neighbor discovery.
-        if 'neighbor' in interest_name: # Only a primary node ever receives this.
-            if not f'marker/{interest_name[0]}' in self.forwarding_information_base:
+        if 'neighbor' in sender_marker_interest: # Only a primary node ever receives this.
+            fib_content_name = f'marker/{sender_marker_interest[0]}'
+            if not fib_content_name in self.forwarding_information_base:
 
                 # Add to neighbor table and FIB.
                 self.neighbors[sender_name] = {
                     'host': sender_host, 
                     'port': int(sender_port)
                 }
-                self.forwarding_information_base[f'marker/{interest_name[0]}'] = sender_name
+                self.add_to_fib(
+                    content_name=fib_content_name,
+                    incoming_face_name=sender_name
+                )
                 if len(self.neighbors) > 2: # Max 2 neighbors only.
                     n = next(iter(self.neighbors))
                     self.neighbors.pop(n)
-                    for marker, name in self.forwarding_information_base.items():
-                        if name == n:
-                            self.forwarding_information_base.pop(marker)
+                    for fib_name, outgoing_faces in self.forwarding_information_base.items():
+                        if n in outgoing_faces:
+                            self.forwarding_information_base.pop(fib_name)
                             break
                 
                 # Add to PIT.
-                self.add_to_pit(interest_name[1], (sender_name, interest_name[0]))
+                self.add_to_pit(sender_marker_interest[1], (sender_name, sender_marker_interest[0]))
                 print(f'[{self.name}] Discovered neighbor {sender_name}.')
 
                 # Check FIB to see if there exists a suitable neighbor for
                 # any interested party in the PIT. If so, send a data packet to them
                 # with this suitable neighbor's information and remove corresponding
                 # interest from PIT.
-                interested_parties = self.pending_interest_table[interest_name[1]]
+                interested_parties = self.pending_interest_table[sender_marker_interest[1]]
                 to_pop = []
                 for i in range(1, len(interested_parties)+1):
                     pit_name_marker = interested_parties[-1*i]
                     for j in range(1, len(self.forwarding_information_base.keys())+1): 
-                        fib_marker_name = list(self.forwarding_information_base.items())[-1*j]
-                        if f'marker/{pit_name_marker[1]}' != fib_marker_name[0]:
+                        fib_marker_faces = list(self.forwarding_information_base.items())[-1*j]
+                        fib_marker_name = [
+                            fib_marker_faces[0],
+                            self.get_from_fib(fib_marker_faces[0])
+                        ]
+                        if f'marker/{pit_name_marker[1]}' != fib_marker_faces[0]:
                             # print(f'marker/{pit_name_marker[1]} != {marker}', pit_name_marker[0], self.neighbors[pit_name_marker[0]])
                             message = make_data_packet(
-                                content_name=f'{self.host}-{self.port}-{self.name}/{interest_name[1]}',
+                                content_name=f'{self.host}-{self.port}-{self.name}/{sender_marker_interest[1]}',
                                 data={
                                     'name': fib_marker_name[1],
                                     'marker': fib_marker_name[0],
@@ -190,9 +217,9 @@ class Node:
                 for v in to_pop: 
                     interested_parties.pop(interested_parties.index(v))
                 if len(interested_parties) == 0:
-                    self.pending_interest_table.pop(interest_name[1])
+                    self.pending_interest_table.pop(sender_marker_interest[1])
                 else:
-                    self.pending_interest_table[interest_name[1]] = interested_parties
+                    self.pending_interest_table[sender_marker_interest[1]] = interested_parties
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -226,7 +253,10 @@ class Node:
                     'host': data['host'],
                     'port': data['port']
                 }
-                self.forwarding_information_base[f'marker/{data["marker"]}'] = data['name']
+                self.add_to_fib(
+                    content_name=f'marker/{data["marker"]}', 
+                    incoming_face_name=data['name']
+                )
                 print(f'[{self.name}] Discovered neighbor {data["name"]}.')
 
     def neighbor_discovery(self):
