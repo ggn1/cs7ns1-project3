@@ -130,6 +130,16 @@ class Node:
             thread_beacon = threading.Thread(target=self.search_beacon, args=())
             thread_beacon.start()
 
+    def __print_debug_tables(self):
+        print(f'\n[{self.name}]')
+        print(f'\tNeighbors = {self.neighbors}.')
+        print(f'\tCS = {self.content_store}.')
+        print(f'\tPIT = {self.pending_interest_table}.')
+        print(f'\tFIB = {self.forwarding_information_base}.')
+
+    def __print_debug(self, to_print):
+        print(f'[{self.name}] {to_print}')
+
     def sense_cancer_marker(self):
         ''' Returns latest value in sensor. '''
         return self.__sensors['cancer_marker']
@@ -137,7 +147,8 @@ class Node:
     def add_to_pit(self, content_name, incoming_face_name):
         if not content_name in self.pending_interest_table:
             self.pending_interest_table[content_name] = []
-        self.pending_interest_table[content_name].append(incoming_face_name)    
+        if incoming_face_name not in self.pending_interest_table[content_name]:
+            self.pending_interest_table[content_name].append(incoming_face_name)    
 
     def get_from_pit(self, content_name):
         if content_name in self.pending_interest_table:
@@ -151,6 +162,7 @@ class Node:
             self.forwarding_information_base[content_name][outgoing_face_name] += 1
         else: 
             self.forwarding_information_base[content_name][outgoing_face_name] = 0
+        self.__print_debug(f'Added {outgoing_face_name}:{self.forwarding_information_base[content_name][outgoing_face_name]} to FIB.')
 
     def get_from_fib(self, content_name, get_cost=False):
         ''' Gets lest costly neighbor. '''
@@ -319,15 +331,21 @@ class Node:
                 # with this suitable neighbor's information and remove corresponding
                 # interest from PIT.
                 interested_parties = self.pending_interest_table[sender_marker_interest[1]]
-                to_pop = []
+                interested_parties_served = []
                 for i in range(1, len(interested_parties)+1):
                     pit_name_marker = interested_parties[-1*i]
                     for j in range(1, len(self.forwarding_information_base.keys())+1): 
-                        fib_marker_faces = list(self.forwarding_information_base.items())[-1*j]
-                        fib_marker_name = [
+                        fib_marker_faces = list( # {marker/Mx:{F_1:cost, F_2:cost, ...}}
+                            self.forwarding_information_base.items()
+                        )[-1*j]
+
+                        fib_marker_name = [ # [Mx, F_cheapest]
                             fib_marker_faces[0].split('/')[1],
                             self.get_from_fib(fib_marker_faces[0])
                         ]
+
+                        # If interested party's marker is different from a marker in
+                        # the fib table, return this neighbor's information as data packet.
                         if f'marker/{pit_name_marker[1]}' != fib_marker_faces[0]:
                             message = make_data_packet(
                                 content_name=f'{self.host}-{self.port}-{self.name}/{sender_marker_interest[1]}',
@@ -343,10 +361,12 @@ class Node:
                                 host=self.neighbors[pit_name_marker[0]]['host'],
                                 port=self.neighbors[pit_name_marker[0]]['port']
                             )
-                            to_pop.append(pit_name_marker)
+                            interested_parties_served.append(pit_name_marker)
                             break
-                for v in to_pop: 
+                # Clear PIT of interested parties that were served.
+                for v in interested_parties_served: 
                     interested_parties.pop(interested_parties.index(v))
+                # If no more parties interested in a neighbor, pop this interest from PIT.
                 if len(interested_parties) == 0:
                     self.pending_interest_table.pop(sender_marker_interest[1])
                 else:
@@ -358,8 +378,8 @@ class Node:
                 # decision making protocol.
                 self.set_actuator('beacon', 0)
                 print(f'[{self.name}] Neighbor discovery complete. Turned off beacon.')
-                print(f'[{self.name}] FIB = {self.forwarding_information_base}.')
-                self.start_decision_making()
+                self.__print_debug_tables()
+                # self.start_decision_making()
 
         # NDN Routing.
         else: 
@@ -427,11 +447,11 @@ class Node:
         # Neighbor discovery.
         if 'neighbor' in data_name:
             data = packet['data'] #  {'marker':str, 'name':str, 'host':str, 'port':int}
-            if (
+            if ( # If received' neighbor's marker is not already in FIB and is not own marker,
                 not (f'marker/{data["marker"]}' in self.forwarding_information_base)
                 and data["marker"] != self.marker
             ):
-                # Add to neighbors and FIB.
+                # then add this neighbor to the FIB.
                 self.neighbors[data['name']] = {
                     'host': data['host'],
                     'port': data['port']
@@ -442,10 +462,11 @@ class Node:
                 )
                 print(f'[{self.name}] Discovered neighbor {data["name"]}.')
                 print(f'[{self.name}] Neighbor discovery complete.')
+                self.__print_debug_tables()
                 
                 # Bot neighbor discovery complete.
                 # So, start decision making protocol.
-                self.start_decision_making()
+                # self.start_decision_making()
 
         # NDN Routing
         else: 
@@ -477,7 +498,6 @@ class Node:
 
     def neighbor_discovery(self):
         ''' Discovers all neighbors. '''
-        # print(f'[{self.name}] Discovering 3 neighbors ...')
         message = f'{self.host}-{self.port}-{self.name}/{self.marker}/neighbor'
         neighbor_first = self.neighbors[list(self.neighbors.keys())[0]]
         send_tcp(
@@ -528,23 +548,26 @@ class Node:
             that this bot has picked up a beacon,
             search for a beacon.
         '''
-        beacon_found = False
+        searching = False
         while True:
-            if (self.marker != CONFIG['primary_marker'] and self.__sensors['beacon'] < 0):
-                print(f'[{self.name}] Searching for beacon ...')
-                time.sleep(1)
-                content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
-                send_tcp(
-                    message=make_interest_packet(content_name=content_name), 
-                    host=CONFIG['rendezvous_server'][0],
-                    port=CONFIG['rendezvous_server'][1]
-                )
-                if beacon_found:
-                    beacon_found = False
+            if (
+                self.marker != CONFIG['primary_marker'] 
+                and self.__sensors['beacon'] < 0
+            ): # If we were not searching, start since we don't know where primary bot is.
+                if searching == False:
+                    searching = True
+                    print(f'[{self.name}] Searching for beacon ...')
+                    time.sleep(1)
+                    content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
+                    send_tcp(
+                        message=make_interest_packet(content_name=content_name), 
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
             else:
-                if not beacon_found:
+                if searching == True: # If we were searching, stop since found beacon.
+                    searching = False
                     print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
-                    beacon_found = True
 
     def start_decision_making(self):
         # Get marker value for each marker.
