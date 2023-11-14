@@ -283,7 +283,7 @@ class Node:
         if self.marker == CONFIG['primary_marker']:
             if self.__actuators['beacon'] != 0:
                 self.set_actuator('beacon', 0)
-                self.ready_to_decide = 0
+            self.ready_to_decide = 0
         else: self.primary_node = None
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
@@ -327,6 +327,7 @@ class Node:
         sender_port = int(sender_port)
         interest = content_name[1:len(content_name)-1]
         timestamp = content_name[-1]
+        # self.__print(f'\nReceived interest packet {packet}')
 
         # Neighbor discovery.
         if 'neighbor' in interest: # Only a primary node ever receives this.
@@ -338,7 +339,7 @@ class Node:
                 'port': sender_port, 
                 'marker': sender_marker
             }
-            # add a route iin FIB that link's sender's marker to sender
+            # add a route in FIB that link's sender's marker to sender
             self.add_to_fib(content_name=f'marker/{sender_marker}', outgoing_face_name=sender_name, replace=True)
             # add sender's interest for neighbor of desired marker type to PIT
             self.add_to_pit(content_name=f'neighbor/{desired_marker}', incoming_face_name=sender_name)
@@ -347,6 +348,7 @@ class Node:
             # then service all interested parties in PID with desired routes from FIB.
             if len(self.neighbors) == (len(CONFIG['markers'])-1):
                 self.__print('Servicing all neighbour interest packets.')
+                interests_serviced = []
                 for interest, interested_parties in self.pending_interest_table.items():
                     requested_marker = interest.split('/')[1]
                     requested_marker_src_name = self.get_from_fib(content_name=f'marker/{requested_marker}')
@@ -364,13 +366,17 @@ class Node:
                                 host=self.neighbors[name]['host'],
                                 port=self.neighbors[name]['port']
                             )
+                        interests_serviced.append(interest)
+                # Since all above interests were serviced, they may be popped from PIT.
+                for interest in interests_serviced:
+                    self.pending_interest_table.pop(interest)
                 
                 if not(self.neighbor_discovery_complete):
                     self.neighbor_discovery_complete = True
                     self.__print('Neighbor discovery complete.')
                     self.set_actuator('beacon', 0)
                     self.__print('Beacon turned off.')
-                    # self.__print_tables()
+                    self.__print_tables()
 
         # When a primary node receives diagnose interest from all non-primary 
         # nodes and this primary node's neighbor discovery is complete, this
