@@ -343,8 +343,7 @@ class Node:
 
             # If this node's (primary node) neighbor discovery is complete,
             # then service all interested parties in PID with desired routes from FIB.
-            if len(self.neighbors) == len(CONFIG['markers'])-1:
-                
+            if len(self.neighbors) == (len(CONFIG['markers'])-1):
                 self.__print('Servicing all neighbour interest packets.')
                 for interest, interested_parties in self.pending_interest_table.items():
                     requested_marker = interest.split('/')[1]
@@ -364,9 +363,10 @@ class Node:
                                 port=self.neighbors[name]['port']
                             )
                 
-                self.neighbor_discovery_complete = True
-                self.__print('Neighbor discovery complete.')
-                # self.__print_tables()
+                if not(self.neighbor_discovery_complete):
+                    self.neighbor_discovery_complete = True
+                    self.__print('Neighbor discovery complete.')
+                    # self.__print_tables()
 
         # When a primary node receives diagnose interest from all non-primary 
         # nodes and this primary node's neighbor discovery is complete, this
@@ -498,10 +498,11 @@ class Node:
             # Add route to FIB.
             self.add_to_fib(content_name=f'marker/{desired_marker}', outgoing_face_name=data['name'], replace=True)
 
-            # After neighbor discovery is complete, 
-            # wait for a bit to allow any pending transfers and
-            # begin decision making.
-            if len(self.neighbors) == len(CONFIG['markers'])-1:
+            # Check if neighbor discovery is complete.
+            if (
+                len(self.neighbors) == len(CONFIG['markers'])-1 
+                and not self.neighbor_discovery_complete
+            ):
                 self.neighbor_discovery_complete = True
                 self.__print('Neighbor discovery complete.')
                 # self.__print_tables()
