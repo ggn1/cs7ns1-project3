@@ -73,12 +73,10 @@ class Server:
                 del self.pending_interest_table[data_name]
 
         if data_name == 'beacon/off':
-            packet = self.content_store['beacon/on']
-            print(packet)
-            if (
-                packet['data']['host'] == sender_host 
-                and packet['data']['port'] == sender_port
-            ): self.content_store.pop('beacon/on')
+            old_content_src = self.content_store['beacon/on']['content_name'].split('/')[0]
+            cur_content_src = content_name[0]
+            if (old_content_src == cur_content_src): 
+                self.content_store.pop('beacon/on')
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')

@@ -3,6 +3,7 @@ import time
 import socket
 
 def send_tcp(message, host, port):
+    print(f'{message} to {host} {port}.')
     socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_temp.connect((host, port))
     message = message.encode('utf-8')

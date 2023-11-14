@@ -573,9 +573,8 @@ class Node:
    
     def set_actuator(self, actuator, value):
         ''' Sets value of actuators. '''
-        self.__actuators[actuator] = value
-
         if actuator == 'tethers':
+            self.__actuators[actuator] = value
             if value == 1:
                 # Turn off rotators to slow down and
                 # extend tethers to fix itself to potentially cancerous tissue.
@@ -598,7 +597,7 @@ class Node:
                 self.__actuators['head_rotator'] = 0.25
                 self.__actuators['propeller_rotator'] = 0.25
         
-        if actuator == 'beacon':
+        elif actuator == 'beacon':
             if 'beacon' in self.__actuators:
                 # Activate beacon (send a data packet to Rendezvous server
                 # marking position of primary bot that has detected the 
@@ -633,17 +632,21 @@ class Node:
                             port=CONFIG['rendezvous_server'][1]
                         )
 
-        if actuator == 'cargo_hatch':
+        elif actuator == 'cargo_hatch':
+            self.__actuators[actuator] = value
             if value == 1: 
                 print(f'[{self.name}]: Hatch open. Thrombin deployed.')
             else:
                 print(f'[{self.name}]: Hatch closed.')
         
-        if actuator == 'self_destruct':
+        elif actuator == 'self_destruct':
+            self.__actuators[actuator] = value
             if value == 1:
                 print(f'Detonated at position {self.position}.')
                 os.kill(os.getpid(), signal.SIGTERM)
         
+        else: self.__actuators[actuator] = value
+
     def set_sensors(self, sensor, value):
         ''' Sets values for each sensor and initiates
             appropriate behavior. '''
