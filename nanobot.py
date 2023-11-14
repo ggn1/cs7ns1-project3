@@ -79,6 +79,7 @@ class Node:
         self.neighbor_discovery_complete = False
         if self.marker != CONFIG['primary_marker']:
             self.primary_node = None
+        self.diagnosis = None
         
         # Sensors and actuators.
         self.__sensors = {
@@ -98,9 +99,7 @@ class Node:
         self.neighbors = {}
 
         # NDN
-        self.content_store = {
-            f'marker/{self.marker}': self.sense_cancer_marker()
-        }
+        self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
         self.pending_interest_table = {}
         self.forwarding_information_base = {}
 
@@ -129,6 +128,9 @@ class Node:
         else:
             thread_beacon = threading.Thread(target=self.search_beacon, args=())
             thread_beacon.start()
+        # Diagnosis monitor.
+        thread_diagnosis = threading.Thread(target=self.handle_decision, args=())
+        thread_diagnosis.start()
 
     def __print_tables(self):
         print(f'\n[{self.name}]')
@@ -270,35 +272,40 @@ class Node:
             to destroy cancer cells. '''
         self.set_actuator('cargo_hatch', 1)
         print(f'[{self.name}]: Preparing to self-destruct.')
-        time.sleep(2)
         self.set_actuator('self_destruct', 1)
     
     def initiate_state_reset(self):
         ''' Protocol that bots execute to untether and 
             continue operation. '''
         # Reset all state variables.
+        self.diagnosis = None
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbors = {}
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
         self.pending_interest_table = {}
         self.forwarding_information_base = {}
         self.set_actuator('tethers', 0)
-        self.set_actuator('self_destruct', 0)
-        self.set_actuator('cargo_hatch', 0)
-        self.set_actuator('diffuser', 0)
-        # if self.marker == CONFIG['primary_marker']: 
-        #     self.set_actuator('beacon', 0)
+        self.neighbor_discovery_complete = False
+        if self.marker == CONFIG['primary_marker']:
+            if self.__actuators['beacon'] != 0:
+                self.set_actuator('beacon', 0)
+                self.ready_to_decide = 0
+        else:
+            self.primary_node = None
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
-        print(f'[{self.name}] State reset.')
+        self.__print('State reset.')
 
-    def handle_decision(self, decision):
+    def handle_decision(self):
         ''' Take action based on decision made. '''
-        time.sleep(3) # Sleep to allow time for any pending communications.
-        if decision == 'cancer':
-            self.initiate_attack_sequence()
-        else: # decision == 'healthy'
-            self.initiate_state_reset()
+        while True:
+            if self.diagnosis:
+                time.sleep(5)
+                self.__print(f'Diagnosis = {self.diagnosis}.')
+                if self.diagnosis == 'cancer':
+                    self.initiate_attack_sequence()
+                else: # decision == 'healthy'
+                    self.initiate_state_reset()
 
     def satisfy_interest(self, interest, data_packet):
         ''' Handles desired data packet. '''
@@ -316,8 +323,8 @@ class Node:
                 decision = 'healthy'
                 if sum(marker_values) == len(CONFIG['markers']):
                     decision = 'cancer'
-                print(f'[{self.name}] Decision = {decision}!')
                 # self.handle_decision(decision)
+                self.diagnosis = decision
 
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -603,7 +610,6 @@ class Node:
                 if searching == False:
                     searching = True
                     print(f'[{self.name}] Searching for beacon ...')
-                    # time.sleep(1)
                     send_tcp(
                         message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
                         host=CONFIG['rendezvous_server'][0],
