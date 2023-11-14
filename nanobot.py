@@ -74,20 +74,17 @@ class Node:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
-        self.lock = threading.Lock()
+        # self.lock = threading.Lock()
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbor_discovery_complete = False
         if self.marker != CONFIG['primary_marker']:
             self.primary_node = None
         self.diagnosis = None
-        
-        # Sensors and actuators.
-        self.__sensors = {
+        self.__sensors = { # sensors
             'cancer_marker': 0, # 1 => detected
             'beacon': -1 # position of beacon detected
         }
-
-        self.__actuators = {
+        self.__actuators = { # actuators
             'tethers': 0, # 1 => extended
             'head_rotator': 0.25, # acceleration (+ve = forward, -ve = backward)
             'propeller_rotator': 0.25, # acceleration (+ve = forward, -ve = backward)
@@ -95,7 +92,9 @@ class Node:
             'cargo_hatch': 0, # 1 => open
             'diffuser': 0, # 1 => diffused
         }
-
+        if self.marker == CONFIG['primary_marker']: # special variables that only primary node has
+            self.__actuators['beacon'] = 0 # 1 => active.
+            self.ready_to_decide = 0
         self.neighbors = {}
 
         # NDN
@@ -105,10 +104,6 @@ class Node:
 
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
-
-        if self.marker == CONFIG['primary_marker']: # special variables that only primary node has
-            self.__actuators['beacon'] = 0 # 1 => active.
-            self.ready_to_decide = 0
 
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
@@ -278,7 +273,6 @@ class Node:
         ''' Protocol that bots execute to untether and 
             continue operation. '''
         # Reset all state variables.
-        self.diagnosis = None
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbors = {}
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
@@ -290,17 +284,18 @@ class Node:
             if self.__actuators['beacon'] != 0:
                 self.set_actuator('beacon', 0)
                 self.ready_to_decide = 0
-        else:
-            self.primary_node = None
+        else: self.primary_node = None
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
+        time.sleep(3)
+        self.diagnosis = None
         self.__print('State reset.')
 
     def handle_decision(self):
         ''' Take action based on decision made. '''
         while True:
             if self.diagnosis:
-                time.sleep(5)
+                time.sleep(3)
                 self.__print(f'Diagnosis = {self.diagnosis}.')
                 if self.diagnosis == 'cancer':
                     self.initiate_attack_sequence()
@@ -373,6 +368,8 @@ class Node:
                 if not(self.neighbor_discovery_complete):
                     self.neighbor_discovery_complete = True
                     self.__print('Neighbor discovery complete.')
+                    self.set_actuator('beacon', 0)
+                    self.__print('Beacon turned off.')
                     # self.__print_tables()
 
         # When a primary node receives diagnose interest from all non-primary 
@@ -769,8 +766,10 @@ class Node:
                     self.set_actuator('tethers', 1)
                     self.set_actuator('beacon', 1)
                 else: 
-                    self.set_actuator('tethers', 0)
-                    self.set_actuator('beacon', 0)
+                    if self.__actuators['tethers'] != 0:
+                        self.set_actuator('tethers', 0)
+                    if self.__actuators['beacon'] != 0:
+                        self.set_actuator('beacon', 0)
 
     def sense_primary_marker(self):
         while True:
