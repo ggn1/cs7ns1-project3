@@ -77,6 +77,8 @@ class Node:
         self.lock = threading.Lock()
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbor_discovery_complete = False
+        if self.marker != CONFIG['primary_marker']:
+            self.primary_node = None
         
         # Sensors and actuators.
         self.__sensors = {
@@ -105,40 +107,37 @@ class Node:
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
 
-        if self.marker == CONFIG['primary_marker']: 
+        if self.marker == CONFIG['primary_marker']: # special variables that only primary node has
             self.__actuators['beacon'] = 0 # 1 => active.
+            self.ready_to_decide = 0
 
         # Position in blood stream.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
         # THREADS
-
         # Listens for connection to self server.
         thread_listen = threading.Thread(target=self.listen, args=())
         thread_listen.start()
-
         # Move thread.
         thread_move = threading.Thread(target=self.move, args=())
         thread_move.start()
-
         # If this is a primary bot, scan the environment for primary cancer marker.
         if self.marker == CONFIG['primary_marker']:
             thread_primary_marker = threading.Thread(target=self.sense_primary_marker, args=())
             thread_primary_marker.start()
-
         # Else scan the environment for a beacon.
         else:
             thread_beacon = threading.Thread(target=self.search_beacon, args=())
             thread_beacon.start()
 
-    def __print_debug_tables(self):
+    def __print_tables(self):
         print(f'\n[{self.name}]')
         print(f'\tNeighbors = {self.neighbors}.')
         print(f'\tCS = {self.content_store}.')
         print(f'\tPIT = {self.pending_interest_table}.')
         print(f'\tFIB = {self.forwarding_information_base}.')
 
-    def __print_debug(self, to_print):
+    def __print(self, to_print):
         print(f'[{self.name}] {to_print}')
 
     def sense_cancer_marker(self):
@@ -154,16 +153,16 @@ class Node:
     def get_from_pit(self, content_name):
         if content_name in self.pending_interest_table:
             return self.pending_interest_table[content_name]
-        else: return None
+        else: return []
 
-    def add_to_fib(self, content_name, outgoing_face_name):
+    def add_to_fib(self, content_name, outgoing_face_name, replace):
         if not content_name in self.forwarding_information_base:
             self.forwarding_information_base[content_name] = {}
-        if outgoing_face_name in self.forwarding_information_base[content_name]:
+        if outgoing_face_name in self.forwarding_information_base[content_name] and not replace:
             self.forwarding_information_base[content_name][outgoing_face_name] += 1
         else: 
             self.forwarding_information_base[content_name][outgoing_face_name] = 0
-        self.__print_debug(f'Added {outgoing_face_name}:{self.forwarding_information_base[content_name][outgoing_face_name]} to FIB.')
+        # self.__print(f'Added {outgoing_face_name}:{self.forwarding_information_base[content_name][outgoing_face_name]} to FIB.')
 
     def get_from_fib(self, content_name, get_cost=False):
         ''' Gets lest costly neighbor. '''
@@ -179,7 +178,9 @@ class Node:
     def get_random_viable_neighbor(self, sender_name):
         ''' Returns the name of a neighbor that is not the sender. '''
         neighbors = list(self.neighbors.keys())
-        while True:
+        # Pick neighbors randomly until coming across one 
+        # that is not he same the as sender, return this one.
+        while True: 
             n = neighbors[random.randint(0, len(neighbors)-1)]
             if n != sender_name: 
                 return n
@@ -188,26 +189,44 @@ class Node:
         ''' Get the name of a node to which a packet with 
             given content name can be forwarded to.
         '''
-        # Check if known route exists for given content.
-        fwd_neighbour = self.get_from_fib(content_name, get_cost=True) # least costly / None 
+        # Attempt to get cheapest route for given content from FIB
+        fwd_neighbour = self.get_from_fib(content_name, get_cost=True) # [name, cost] / None 
        
-        if fwd_neighbour is None: # If not, then pick a
-            # random viable neighbor (neighbor that is not the sender),
-            # and return this name. Enter this chosen route 
-            # into the FIB initially with cost 0.
+        # If known route does not exist,
+        # pick a random neighbor that is not the sender
+        # and add it to FIB.
+        if fwd_neighbour is None: 
             fwd_neighbour = self.get_random_viable_neighbor(sender_name)
+            self.add_to_fib(content_name, fwd_neighbour, replace=False)
 
-        else: # If a known route exists, (fwd_neighbour = [name, cost])
-            if fwd_neighbour[0] != sender_name: # check it's cost.
-                if fwd_neighbour[1] > 0: # If cost > 0 then there may be a better path.
+        # If a known route exists, check if it points towards sender itself. 
+        else: 
+            # If best route not same as sender 
+            # check if the cost of the route.
+            if fwd_neighbour[0] != sender_name:
+                # If cost > 0, then there may be a better path. Explore
+                # other viable neighbor options.
+                if fwd_neighbour[1] > 0: 
+                    # If there are as many existing routes for this content 
+                    # as neighbors then this means no unexplored neighbors
+                    # exist. Hence, current route, despite costing
+                    # more than 0, remains to be the best option.
+                    # If there are less routes than no. of neighbors,
+                    # explore other neighbors.
                     all_routes = self.forwarding_information_base[content_name]
-                    # Check if there is an unexplored viable neighbor
-                    # and consider this neighbor if found.
-                    if len(all_routes) < len(self.neighbors):
-                        for n in self.neighbors.keys():
+                    # all_routes = {neighbour: cost, ...}
+                    if len(all_routes) < len(self.neighbors): # explore other neighbors
+                        viable_n = None
+                        # loop through all neighbors and find that's 
+                        # not been explored yet (not in the FIB yet).
+                        for n in self.neighbors.keys(): 
                             if n not in all_routes and n != sender_name:
-                                fwd_neighbour = n
+                                viable_n = n
                                 break
+                        if viable_n is None: # no viable neighbor found
+                            fwd_neighbour = fwd_neighbour[0]
+                        else: # viable neighbour found
+                            fwd_neighbour = viable_n
                     # If there are already no. of routes for this content
                     # equal to no. of neighbors, then this means that current 
                     # route is the best possible one.
@@ -215,21 +234,24 @@ class Node:
                         fwd_neighbour = fwd_neighbour[0]
                 else: # If cost is 0, then this is the best option.
                     fwd_neighbour = fwd_neighbour[0]
-            else: # If returned path is not viable.
+            # If best route is same as sender,
+            # find another route.
+            else: 
                 # Check to see if there is another known viable route.
-                # If found, this is the node to send the packet to.
                 all_routes = self.forwarding_information_base[content_name]
-                for n in all_routes.keys():
-                    if n != sender_name: 
-                        fwd_neighbour = n
-                        break
-                # Else pick a random viable neighbor
+                # all_routes = {neighbour: cost, ...}
+                viable_options = [n for n in all_routes.keys() if n != sender_name]
+                if len(viable_options) > 0:
+                    fwd_neighbour = viable_options[
+                        random.randint(0, len(viable_options)-1)
+                    ]
+                # Else pick a random neighbor from list of all neighbors to send to.
+                # add this neighbor to fib if not already present.
                 fwd_neighbour = self.get_random_viable_neighbor(sender_name)
-            # Note: "Viable" neighbour here means a node that is not the sender.
-        
-        # Once a suitable neighbor has been identified to send the packet to, 
-        # return name of this neighbour and add/update chosen path in FIB.
-        self.add_to_fib(content_name, fwd_neighbour)
+                if fwd_neighbour not in all_routes:
+                    self.add_to_fib(content_name, fwd_neighbour, replace=False)
+
+        # Note: "Viable" neighbour here, means a node that is not the sender.
         return fwd_neighbour
 
     def add_to_cs(self, content_name, data):
@@ -286,8 +308,8 @@ class Node:
         # If a peer cancer marker data is available, then 
         # update own knowledge and see if a decision can be made.
         if 'marker' in interest:
-            # data = {'cancer_marker': 'marker': <marker type>, 'value': <marker value>}
-            self.knowledge[data['cancer_marker']['marker']] = data['cancer_marker']['value']
+            # data = {'marker_type': <marker type>, 'marker_value': <marker value>}
+            self.knowledge[data['marker_type']] = data['marker_value']
             marker_values = list(self.knowledge.values())
             # If all marker values are known, share decision with all peers.
             if marker_values.count(-1) == 0:
@@ -295,232 +317,244 @@ class Node:
                 if sum(marker_values) == len(CONFIG['markers']):
                     decision = 'cancer'
                 print(f'[{self.name}] Decision = {decision}!')
-                self.handle_decision(decision)
+                # self.handle_decision(decision)
 
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
-        sender_host, sender_port, sender_name = content_name[0].split('-')
+        sender_host, sender_port, sender_name, sender_marker = content_name[0].split('-')
         sender_port = int(sender_port)
-        data_name = content_name[1:len(content_name)-1]
+        interest = content_name[1:len(content_name)-1]
         timestamp = content_name[-1]
 
         # Neighbor discovery.
-        if 'neighbor' in data_name: # Only a primary node ever receives this.
-            sender_marker_interest = data_name # [<marker>, neighbor]
-            fib_content_name = f'marker/{sender_marker_interest[0]}'
-            if not fib_content_name in self.forwarding_information_base:
+        if 'neighbor' in interest: # Only a primary node ever receives this.
+            # interest = neighbor/<desired-marker>
+            desired_marker = interest[1] # marker for which sender requires a neighbor
+            # add sender to list of neighbors
+            self.neighbors[sender_name] = {
+                'host': sender_host, 
+                'port': sender_port, 
+                'marker': sender_marker
+            }
+            # add a route iin FIB that link's sender's marker to sender
+            self.add_to_fib(content_name=f'marker/{sender_marker}', outgoing_face_name=sender_name, replace=True)
+            # add sender's interest for neighbor of desired marker type to PIT
+            self.add_to_pit(content_name=f'neighbor/{desired_marker}', incoming_face_name=sender_name)
 
-                # Add to neighbor table and FIB.
-                self.neighbors[sender_name] = {
-                    'host': sender_host, 
-                    'port': int(sender_port)
-                }
-                self.add_to_fib(
-                    content_name=fib_content_name,
-                    outgoing_face_name=sender_name
-                )
-
-                # Add to PIT.
-                self.add_to_pit(
-                    content_name=sender_marker_interest[1], 
-                    incoming_face_name=(sender_name, sender_marker_interest[0])
-                )
-                print(f'[{self.name}] Discovered neighbor {sender_name}.')
-
-                # Check FIB to see if there exists a suitable neighbor for
-                # any interested party in the PIT. If so, send a data packet to them
-                # with this suitable neighbor's information and remove corresponding
-                # interest from PIT.
-                interested_parties = self.pending_interest_table[sender_marker_interest[1]]
-                interested_parties_served = []
-                for i in range(1, len(interested_parties)+1):
-                    pit_name_marker = interested_parties[-1*i]
-                    for j in range(1, len(self.forwarding_information_base.keys())+1): 
-                        fib_marker_faces = list( # {marker/Mx:{F_1:cost, F_2:cost, ...}}
-                            self.forwarding_information_base.items()
-                        )[-1*j]
-
-                        fib_marker_name = [ # [Mx, F_cheapest]
-                            fib_marker_faces[0].split('/')[1],
-                            self.get_from_fib(fib_marker_faces[0])
-                        ]
-
-                        # If interested party's marker is different from a marker in
-                        # the fib table, return this neighbor's information as data packet.
-                        if f'marker/{pit_name_marker[1]}' != fib_marker_faces[0]:
-                            message = make_data_packet(
-                                content_name=f'{self.host}-{self.port}-{self.name}/{sender_marker_interest[1]}',
-                                data={
-                                    'name': fib_marker_name[1],
-                                    'marker': fib_marker_name[0],
-                                    'host': self.neighbors[fib_marker_name[1]]['host'],
-                                    'port': self.neighbors[fib_marker_name[1]]['port']
-                                }
-                            )
+            # If this node's (primary node) neighbor discovery is complete,
+            # then service all interested parties in PID with desired routes from FIB.
+            if len(self.neighbors) == len(CONFIG['markers'])-1:
+                
+                self.__print('Servicing all neighbour interest packets.')
+                for interest, interested_parties in self.pending_interest_table.items():
+                    requested_marker = interest.split('/')[1]
+                    requested_marker_src_name = self.get_from_fib(content_name=f'marker/{requested_marker}')
+                    if 'neighbor' in interest: # interest = neighbor/<requested-marker>
+                        for name in interested_parties: # interested_parties = [<name> ...]
                             send_tcp(
-                                message=message,
-                                host=self.neighbors[pit_name_marker[0]]['host'],
-                                port=self.neighbors[pit_name_marker[0]]['port']
+                                message=make_data_packet(
+                                    content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/neighbor/{requested_marker}',
+                                    data={
+                                        'name': requested_marker_src_name,
+                                        'host': self.neighbors[requested_marker_src_name]['host'],
+                                        'port': self.neighbors[requested_marker_src_name]['port'],
+                                    }
+                                ),
+                                host=self.neighbors[name]['host'],
+                                port=self.neighbors[name]['port']
                             )
-                            interested_parties_served.append(pit_name_marker)
-                            break
-                # Clear PIT of interested parties that were served.
-                for v in interested_parties_served: 
-                    interested_parties.pop(interested_parties.index(v))
-                # If no more parties interested in a neighbor, pop this interest from PIT.
-                if len(interested_parties) == 0:
-                    self.pending_interest_table.pop(sender_marker_interest[1])
-                else:
-                    self.pending_interest_table[sender_marker_interest[1]] = interested_parties
-
-            if len(self.neighbors) == (len(CONFIG['markers'])-1):
-                # Primary bot neighbor discovery complete.
-                # So, turn off beacon and start 
-                # decision making protocol.
-                self.set_actuator('beacon', 0)
-                print(f'[{self.name}] Neighbor discovery complete. Turned off beacon.')
+                
                 self.neighbor_discovery_complete = True
-                self.__print_debug_tables()
-                self.start_decision_making()
+                self.__print('Neighbor discovery complete.')
+                # self.__print_tables()
+
+        # When a primary node receives diagnose interest from all non-primary 
+        # nodes and this primary node's neighbor discovery is complete, this
+        # means neighbor discovery of entire network is complete. It also then 
+        # sends a diagnose interest to all non-primary nodes. 
+        elif 'diagnose' in interest: 
+            # Primary bot can start decision making upon receiving 3 diagnose requests.
+            if self.marker == CONFIG['primary_marker']: # Primary node.
+                self.ready_to_decide += 1
+                if (
+                    self.neighbor_discovery_complete 
+                    and self.ready_to_decide == (len(CONFIG['markers'])-1)
+                ):
+                    for host_port in self.neighbors.values():
+                        send_tcp(
+                            message=make_interest_packet(f'{self.host}-{self.port}-{self.name}-{self.marker}/diagnose'),
+                            host=host_port['host'],
+                            port=host_port['port']
+                        )
+                    self.__print('Ready to diagnose.')
+                    self.__print('Starting diagnosis ...')
+                    self.start_diagnosis()
+            # Non primary bots can start decision making upon receiving 1 diagnose request
+            # from the primary bot that they know of.
+            else: # Non-primary node.
+                if sender_name == self.primary_node:
+                    self.__print('Starting diagnosis ...')
+                    self.start_diagnosis()
 
         # NDN Routing.
         else: 
-            if self.neighbor_discovery_complete:
-                print(f'[{self.name}] Received interest packet = {packet}.')
-                interest = '/'.join(data_name)
+            interest = '/'.join(interest)
+            
+            # 1. Add interest to PIT.
+            self.add_to_pit(content_name=interest, incoming_face_name=sender_name)
 
-                # Add interest to PIT.
-                self.add_to_pit(content_name=interest, incoming_face_name=sender_name)
-                
-                # Check CS to determine if you have the content.
-                cs = self.get_from_cs(content_name=interest)
-                if cs is None: # If this peer does not have the content,
-                    # get a suitable neighbour to forward this packet to
-                    # and send it to them.
-                    fwd_neighbor = self.get_fwd_neighbor(
-                        content_name=interest, 
-                        sender_name=sender_name
-                    )
-                    send_tcp(
-                        message=make_interest_packet(
-                            content_name=f'{self.host}-{self.port}-{self.name}/{interest}'
-                        ), 
-                        host=self.neighbors[fwd_neighbor]['host'],
-                        port=self.neighbors[fwd_neighbor]['port']
-                    )
-                else: # If this peer has the content
-                    # then check the PIT table and send
-                    # a data packet to all interested parties.
-                    interested = self.get_from_pit(content_name=interest)
-                    if not interested is None:
-                        # interested = ['neighbor1', 'neighbor2', ...]
-                        while len(interested) > 0:
-                            fwd_name = interested.pop(-1)
-                            # if this interested party is not a neighbor,
-                            # forward this packet to a random neighbor on 
-                            # interested party's behalf (use interested
-                            # party's host and port instead of own since 
-                            # a future reply data packet being sent back to this
-                            # node to convey to interested party is useless since
-                            # interested party is still not a neighbor) # PROBLEM!!!
-                            send_tcp(
-                                message=make_data_packet(
-                                    content_name=f'{self.host}-{self.port}-{self.name}/{interest}',
-                                    data={'cancer_marker':{'marker':self.marker, 'value':cs}}
-                                ),
-                                host=self.neighbors[fwd_name]['host'],
-                                port=self.neighbors[fwd_name]['port']
-                            )
-                        self.pending_interest_table.pop(interest)  
+            # # Route packets only if neighbor discovery is complete.
+            # # Don't forward if own neighbor discovery is incomplete.
+            # # Just store in PIT until neighbor discovery is complete.
+            # if self.neighbor_discovery_complete:
+
+            # 2. Attempt to get requested content from CS.
+            cs_value = self.get_from_cs(content_name=interest)
+
+            # 3. If this peer does not have the content,
+            # pick a suitable neighbour to forward this packet to.
+            if cs_value is None: 
+                # To avoid taking longer paths, first update (+1)
+                # cost of last used route for this content if any.
+                # If there is a last used route X then it means that 
+                # this packet has come back to this node as a result 
+                # of having taken X. So, this cost update will encourage
+                # picking another possibly better route this time.
+                last_used_route = self.get_from_fib(interest)
+                if last_used_route: self.add_to_fib(interest, last_used_route, replace=False)
+
+                # pick good neighbor
+                fwd_neighbor = self.get_fwd_neighbor( 
+                    content_name=interest, 
+                    sender_name=sender_name
+                )
+
+                # forward packet
+                send_tcp( 
+                    message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/{interest}'), 
+                    host=self.neighbors[fwd_neighbor]['host'],
+                    port=self.neighbors[fwd_neighbor]['port']
+                )
+
+            # 4. If this peer has requested content in its CS,
+            # then for every interested party in PIT
+            # send this to them in a data packet. 
             else: 
-                # Don't forward if own neighbor discovery is incomplete.
-                # Just store in PIT until neighbor discovery is complete.
-                pass               
+                # a data packet to all interested parties.
+                interested = self.get_from_pit(content_name=interest) # ['neighbor', ...] / []
+                while len(interested) > 0:
+                    fwd_name = interested.pop(-1)
+                    send_tcp(
+                        message=make_data_packet(
+                            content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/{interest}',
+                            data={'marker_type':self.marker, 'marker_value':cs_value}
+                        ),
+                        host=self.neighbors[fwd_name]['host'],
+                        port=self.neighbors[fwd_name]['port']
+                    )
+                # Pop this interest from the table since by now,
+                # all corresponding interested parties have been served.
+                self.pending_interest_table.pop(interest)            
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
-        sender_host, sender_port, sender_name = content_name[0].split('-')
+        sender_host, sender_port, sender_name, sender_marker = content_name[0].split('-')
         sender_port = int(sender_port)
-        data_name = content_name[1:len(content_name)-1]
+        interest = content_name[1:len(content_name)-1]
         timestamp = content_name[-1]
-        # print(f'[{self.name}] Received data packet = {packet}.')
         
         # Data packet is of type beacon.
-        if 'beacon' in data_name:
+        if 'beacon' in interest:
             data = packet['data']
             self.set_sensors('beacon', data['position'])
-            self.neighbors[sender_name] = {
-                'host': sender_host,
-                'port': sender_port
+            self.primary_node = data['name']
+            self.neighbors[data['name']] = {
+                'host': data['host'],
+                'port': data['port']
             }
             self.add_to_fib(
                 content_name=f'marker/{CONFIG["primary_marker"]}',
-                outgoing_face_name=sender_name
+                outgoing_face_name=data['name'],
+                replace=True
             )
             self.add_to_cs( # Add primary bot's marker value as 1 to CS.
                 content_name=f'marker/{CONFIG["primary_marker"]}',
                 data=1
             )
 
-        # Neighbor discovery.
-        if 'neighbor' in data_name:
-            data = packet['data'] #  {'marker':str, 'name':str, 'host':str, 'port':int}
-            if ( # If received' neighbor's marker is not already in FIB and is not own marker,
-                not (f'marker/{data["marker"]}' in self.forwarding_information_base)
-                and data["marker"] != self.marker
-            ):
-                # then add this neighbor to the FIB.
-                self.neighbors[data['name']] = {
-                    'host': data['host'],
-                    'port': data['port']
-                }
-                self.add_to_fib(
-                    content_name=f'marker/{data["marker"]}', 
-                    outgoing_face_name=data['name']
-                )
-                print(f'[{self.name}] Discovered neighbor {data["name"]}.')
-                print(f'[{self.name}] Neighbor discovery complete.')
+        # Neighbor discovery (received by non primary nodes only).
+        elif 'neighbor' in interest:
+            # interest = neighbor/<requested-marker>
+            data = packet['data'] #  {'name':str, 'host':str, 'port':int}
+            desired_marker = interest[1]
+
+            # Add discovered node to neighbor list.
+            self.neighbors[data['name']] = {
+                'host': data['host'],
+                'port': data['port'],
+                'marker': desired_marker
+            }
+
+            # Add route to FIB.
+            self.add_to_fib(content_name=f'marker/{desired_marker}', outgoing_face_name=data['name'], replace=True)
+
+            # After neighbor discovery is complete, 
+            # wait for a bit to allow any pending transfers and
+            # begin decision making.
+            if len(self.neighbors) == len(CONFIG['markers'])-1:
                 self.neighbor_discovery_complete = True
-                self.__print_debug_tables()
-                
-                # Bot neighbor discovery complete.
-                # So, start decision making protocol.
-                self.start_decision_making()
+                self.__print('Neighbor discovery complete.')
+                # self.__print_tables()
+                # Send interest to start decision making to primary bot.
+                # Start only when primary bot confirms decision.
+                send_tcp(
+                    message=make_interest_packet(f'{self.host}-{self.port}-{self.name}-{self.marker}/diagnose'),
+                    host=self.neighbors[self.primary_node]['host'],
+                    port=self.neighbors[self.primary_node]['port']
+                )
+                self.__print('Ready to diagnose.')
 
         # NDN Routing
         else: 
-            interest = '/'.join(data_name)
-            # Check PIT table.
-            interested = self.get_from_pit(interest)
-            # If there are interested parties for this 
-            # packet, proceed, else drop it.
-            if not interested is None:
-                while len(interested) > 0:
-                    # If other peers had previously 
-                    # expressed interest in this packet,
-                    # then forward it to them.
-                    name = interested.pop(-1)
-                    if name != self.name: 
-                        send_tcp(
-                            message=make_data_packet(
-                                content_name=f'{self.host}-{self.port}-{self.name}/{interest}',
-                                data=packet['data']
-                            ),
-                            host = self.neighbors[name]['host'],
-                            port = self.neighbors[name]['port']
-                        )
-                    # If this node itself was previously yourself
-                    # interested in this kind of content, then,
-                    # this node uses this packet for itself.
-                    else: 
-                        self.satisfy_interest(interest=interest, data_packet=packet)
-                self.pending_interest_table.pop(interest)
+            interest = '/'.join(interest)
+
+            # 1. Cache it in content store.
+            self.add_to_cs(interest, packet['data'])
+        
+            # 2. Check PIT table.
+            interested = self.get_from_pit(interest) # [name, ...]
+            
+            # Serve every party in PIT interested in received content
+            # (if no interested parties, packet is dropped).
+            while len(interested) > 0:
+                interested_party = interested.pop(-1) # interested party name
+
+                # If the interested party is this node itself,
+                # use the data for personal purposes.
+                if interested_party == self.name:
+                    self.satisfy_interest(interest=interest, data_packet=packet)
+
+                # Else this interested party is another peer
+                # that had previously requested this content.
+                # Forward it to them.
+                else: 
+                    send_tcp(
+                        message=make_data_packet(
+                            content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/{interest}',
+                            data=packet['data']
+                        ),
+                        host = self.neighbors[interested_party]['host'],
+                        port = self.neighbors[interested_party]['port']
+                    )
+                    
+            # Pop this interest from the table since by now,
+            # all corresponding interested parties have been served.
+            self.pending_interest_table.pop(interest)
         
     def handle_incoming(self, conn):
         ''' Handle received data and send appropriate response. '''
-        message = conn.recv(1024).decode('utf-8')
+        message = conn.recv(2048).decode('utf-8')
         packet = json.loads(message)
-        # print(f'[{self.name}] Message received from {addr}: {packet}.')
         if packet['type'] == 'data':
             self.handle_data_packet(packet)
         else:
@@ -560,50 +594,77 @@ class Node:
         '''
         searching = False
         while True:
-            if (
+            if ( # Only non primary bots yet to detect a beacon, searches.
                 self.marker != CONFIG['primary_marker'] 
                 and self.__sensors['beacon'] < 0
-            ): # If we were not searching, start since we don't know where primary bot is.
+            ): 
+                # If we were not searching, start since we don't know where primary bot is.
                 if searching == False:
                     searching = True
                     print(f'[{self.name}] Searching for beacon ...')
-                    time.sleep(1)
-                    content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
+                    # time.sleep(1)
                     send_tcp(
-                        message=make_interest_packet(content_name=content_name), 
+                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
                         host=CONFIG['rendezvous_server'][0],
                         port=CONFIG['rendezvous_server'][1]
                     )
             else:
                 if searching == True: # If we were searching, stop since found beacon.
                     searching = False
-                    print(f'[{self.name}] Beacon found at {self.__sensors["beacon"]}.')
 
-    def start_decision_making(self):
+    def start_diagnosis(self):
         # Get marker value for each possible marker.
         for possible_marker in CONFIG['markers']:
             # For own marker, already have value so update knowledge.
             marker_value = self.get_from_cs(f'marker/{possible_marker}')
-            if marker_value is None: # For other markers, send interest packet.
-                interest = f'marker/{possible_marker}'
-                prefix = f'{self.host}-{self.port}-{self.name}'
-                self.add_to_pit( # Add own interest to PIT.
+            # For marker whose values are yet to be in content base, 
+            # 1. create an interest
+            # 2. add self interest to PIT
+            # 3. get a suitable neighbor to forward to
+            # 4. forward interest
+            # send interest packet to best possible neighbor.
+            if marker_value is None: 
+                interest = f'marker/{possible_marker}' # 1. express interest
+                self.add_to_pit( # add to PIT
                     content_name=interest,
                     incoming_face_name=self.name
                 )
-                # Forward interest packet.
-                fwd_neighbor = self.get_fwd_neighbor(
+                fwd_neighbor = self.get_fwd_neighbor( # 2. get best neighbor to send to
                     content_name=interest, 
                     sender_name=self.name
                 )
-                send_tcp(
-                    message=make_interest_packet(content_name=f'{prefix}/{interest}'),
+                send_tcp( # 3. send interest packet to chosen neighbor
+                    message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/{interest}'),
                     host=self.neighbors[fwd_neighbor]['host'],
                     port=self.neighbors[fwd_neighbor]['port']
                 )
-                print(f'[{self.name}] Sent {interest} to {fwd_neighbor}.')
-            else: self.knowledge[self.marker] = marker_value
+                # print(f'[{self.name}] Sent {interest} to {fwd_neighbor}.')
+            # For markers whose values are available,
+            # update own knowledge with these values.
+            else: 
+                self.knowledge[possible_marker] = marker_value
    
+    def start_neighbour_discovery(self):
+        ''' This function is called by a non-primary node
+            once it tethers to trigger neighbor discovery.
+        '''
+        # For all possible markers, if it's not own marker
+        # or a marker already having forwarding information
+        # in the FIB, send an interest packet to the primary node
+        # for information about the node with this marker. 
+        for possible_marker in CONFIG['markers']:
+            if (
+                f'marker/{possible_marker}' not in self.forwarding_information_base
+                and possible_marker != self.marker
+            ):
+                send_tcp(
+                    message=make_interest_packet(
+                        content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/neighbor/{possible_marker}'
+                    ),
+                    host=self.neighbors[self.primary_node]['host'],
+                    port=self.neighbors[self.primary_node]['port']
+                )
+
     def set_actuator(self, actuator, value):
         ''' Sets value of actuators. '''
         if actuator == 'tethers':
@@ -622,14 +683,7 @@ class Node:
                     if self.knowledge[self.marker] == -1: # Take cancer marker sensor reading.
                         cancer_marker_value = int(input('Sensing cancer marker value: '))
                         self.set_sensors('cancer_marker', cancer_marker_value)
-                    # Neighbor discovery: Discover 1 more neighbor other than A.'
-                    message = f'{self.host}-{self.port}-{self.name}/{self.marker}/neighbor'
-                    neighbor_first = self.neighbors[list(self.neighbors.keys())[0]]
-                    send_tcp(
-                        message=make_interest_packet(message),
-                        host=neighbor_first['host'],
-                        port=neighbor_first['port']
-                    )
+                    self.start_neighbour_discovery()
             else: # value == 0
                 # Tethers retract and rotators apply positive
                 # acceleration. Bot moves with blood flow.
@@ -638,17 +692,17 @@ class Node:
                 self.__actuators['propeller_rotator'] = 0.25
         
         elif actuator == 'beacon':
-            if 'beacon' in self.__actuators:
+            if 'beacon' in self.__actuators: # Only for primary bot.
                 # Activate beacon (send a data packet to Rendezvous server
                 # marking position of primary bot that has detected the 
                 # primary cancer marker.)
                 if value == 1:
                     self.__actuators['beacon'] = value
-                    content_name = f'{self.host}-{self.port}-{self.name}/beacon/on'
                     send_tcp(
                         message=make_data_packet(
-                            content_name=content_name,
+                            content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on',
                             data={
+                                'name': self.name,
                                 'position': self.position, 
                                 'host': self.host, 
                                 'port':self.port
@@ -666,7 +720,7 @@ class Node:
                         self.__actuators['beacon'] = value
                         send_tcp(
                             message=make_interest_packet(
-                                content_name=f'{self.host}-{self.port}-{self.name}/beacon/off'
+                                content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/off'
                             ), 
                             host=CONFIG['rendezvous_server'][0],
                             port=CONFIG['rendezvous_server'][1]
