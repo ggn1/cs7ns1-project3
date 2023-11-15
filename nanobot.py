@@ -124,42 +124,6 @@ class Node:
     def __print(self, to_print):
         print(f'[{self.name}] {to_print}')
 
-    def listen_event(self):
-        ''' Listens for various events. '''
-        # If beacon sensor of a non-primary bot 
-        # does not contain a position value indicating
-        # that this bot has picked up a beacon,
-        # search for a beacon.
-        
-        # BEACON
-        searching = False
-        while True:
-            if ( # Only non primary bots yet to detect a beacon, searches.
-                self.marker != CONFIG['primary_marker'] 
-                and self.__sensors['beacon'] < 0
-            ): 
-                # If we were not searching, start since we don't know where primary bot is.
-                if searching == False:
-                    searching = True
-                    print(f'[{self.name}] Searching for beacon ...')
-                    send_tcp(
-                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
-                        host=CONFIG['rendezvous_server'][0],
-                        port=CONFIG['rendezvous_server'][1]
-                    )
-            else:
-                if searching == True: # If we were searching, stop since found beacon.
-                    searching = False
-
-            # Be ready to take action as soon as a decision is available.
-            if self.diagnosis:
-                time.sleep(3)
-                self.__print(f'Diagnosis = {self.diagnosis}.')
-                if self.diagnosis == 'cancer':
-                    self.initiate_attack_sequence()
-                else: # decision == 'healthy'
-                    self.initiate_state_reset()
-
     def sense_cancer_marker(self):
         ''' Returns latest value in sensor. '''
         return self.__sensors['cancer_marker']
@@ -591,6 +555,102 @@ class Node:
             socket_connection, address = self.socket.accept()
             self.handle_incoming(socket_connection)
 
+    def listen_event(self):
+        ''' Listens for various events. '''
+        # If beacon sensor of a non-primary bot 
+        # does not contain a position value indicating
+        # that this bot has picked up a beacon,
+        # search for a beacon.
+        
+        # BEACON
+        searching = False
+        search_trials = 0
+        search_start_time = None
+        while True:
+            if ( # Only non primary bots yet to detect a beacon, searches.
+                self.marker != CONFIG['primary_marker'] 
+                and self.__sensors['beacon'] < 0
+            ): 
+                cur_time = time.time()
+                if (
+                    not search_start_time is None
+                    and ((cur_time-search_start_time)>=CONFIG['timeout']['beacon_search'])
+                ):
+                    searching = False
+                    if search_trials > CONFIG['trials']['beacon_search']:
+                        self.set_actuator('diffuser', 1)
+                # If we were not searching, start since we don't know where primary bot is.
+                if searching == False:
+                    searching = True
+                    search_start_time = time.time()
+                    search_trials += 1
+                    print(f'[{self.name}] Searching for beacon ...')
+                    send_tcp(
+                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
+            else:
+                if searching == True: # If we were searching, stop since found beacon.
+                    searching = False
+
+            # Be ready to take action as soon as a decision is available.
+            if self.diagnosis:
+                time.sleep(3)
+                self.__print(f'Diagnosis = {self.diagnosis}.')
+                if self.diagnosis == 'cancer':
+                    self.initiate_attack_sequence()
+                else: # decision == 'healthy'
+                    self.initiate_state_reset()
+
+    def listen_event(self):
+        ''' Listens for various events. '''
+        # If beacon sensor of a non-primary bot 
+        # does not contain a position value indicating
+        # that this bot has picked up a beacon,
+        # search for a beacon.
+        
+        # BEACON
+        searching = False
+        search_trials = 0
+        search_start_time = None
+        while True:
+            if ( # Only non primary bots yet to detect a beacon, searches.
+                self.marker != CONFIG['primary_marker'] 
+                and self.__sensors['beacon'] < 0
+            ): 
+                cur_time = time.time()
+                if (
+                    not search_start_time is None
+                    and ((cur_time-search_start_time)>=CONFIG['timeout']['beacon_search'])
+                ):
+                    searching = False
+                    if search_trials > CONFIG['trials']['beacon_search']:
+                        self.set_actuator('diffuser', 1)
+                # If we were not searching, start since we don't know where primary bot is.
+                if searching == False:
+                    searching = True
+                    search_start_time = time.time()
+                    search_trials += 1
+                    print(f'[{self.name}] Searching for beacon ...')
+                    send_tcp(
+                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
+            else:
+                if searching == True: # If we were searching, stop since found beacon.
+                    searching = False
+
+            # Be ready to take action as soon as a decision is available.
+            if self.diagnosis:
+                time.sleep(3)
+                self.__print(f'Diagnosis = {self.diagnosis}.')
+                if self.diagnosis == 'cancer':
+                    self.initiate_attack_sequence()
+                else: # decision == 'healthy'
+                    self.initiate_state_reset()
+
     def move(self, position):
         ''' Simulates movement of nodes. '''
         # Bot has moved to some new location by the time this function is called.
@@ -737,22 +797,31 @@ class Node:
                 print(f'Detonated at position {self.position}.')
                 os.kill(os.getpid(), signal.SIGTERM)
         
+        elif actuator == 'diffuser':
+            self.__actuators[actuator] = value
+            if value == 1:
+                print(f'Diffused. Goodbye :)')
+                os.kill(os.getpid(), signal.SIGTERM)
+
         else: self.__actuators[actuator] = value
 
     def set_sensors(self, sensor, value):
         ''' Sets values for each sensor and initiates
             appropriate behavior. '''
         
-        if sensor == 'beacon':
-            self.__sensors['beacon'] = value
-
         if sensor == 'cancer_marker':
             self.__sensors['cancer_marker'] = value
 
             # If a primary marker's cancer sensor is not set
             # simulate environment search for cancer marker.
             if value == 0 and self.marker == CONFIG['primary_marker']:
-                cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                cancer_marker_value = 0
+                trials = 0
+                while cancer_marker_value != '1':
+                    if trials >= CONFIG['trials']['tumour_search']:
+                        self.set_actuator('diffuser', 1)
+                    cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                    trials += 1
                 self.move(position=random.randint(0, CONFIG['blood_stream_length']-1))
                 self.set_sensors('cancer_marker', int(cancer_marker_value))
 
@@ -773,6 +842,8 @@ class Node:
                         self.set_actuator('tethers', 0)
                     if self.__actuators['beacon'] != 0:
                         self.set_actuator('beacon', 0)
+        else: 
+            self.__sensors[sensor] = value
         
 if __name__ == '__main__':
     args = setup_argparser()
