@@ -1,0 +1,16 @@
+Project Requirements
+====================
+1. Conceive, design, implement, build and prove a peer-to-peer (P2P) networking protocol.
+2. This protocol must be secure.
+3. This protocol must follow Information Centric Networking (ICN) Principles.
+4. Emulate a use case for demonstration and testing purposes.
+5. This emulation must be realistic.
+6. This emulation must be highly disconnected.
+7. This emulation must be scalable.
+8. This emulation must involve communications between more than 1 (P2P) networks.
+9. Each P2P network must comprise at least 5 distinct device instances.
+10. Each device instance must have at least 8 distinct sensors/actuators.
+11. Designed system must be implemented using group RPis to the greatest extent possible.
+12. The designed system must be robust to failure of 1 or more nodes and/or networks.
+13. The emulation must include simulated mobility.
+14. The emulation must include simulated unreliability.

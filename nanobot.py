@@ -109,12 +109,15 @@ class Node:
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
         # THREADS
+        
         # Listens for connection to self server.
         thread_listen = threading.Thread(target=self.listen, args=())
         thread_listen.start()
-        # Move thread.
-        thread_move = threading.Thread(target=self.move, args=())
-        thread_move.start()
+        
+        # # Move thread.
+        # thread_move = threading.Thread(target=self.move, args=())
+        # thread_move.start()
+        
         # If this is a primary bot, scan the environment for primary cancer marker.
         if self.marker == CONFIG['primary_marker']:
             thread_primary_marker = threading.Thread(target=self.sense_primary_marker, args=())
@@ -123,6 +126,7 @@ class Node:
         else:
             thread_beacon = threading.Thread(target=self.search_beacon, args=())
             thread_beacon.start()
+        
         # Diagnosis monitor.
         thread_diagnosis = threading.Thread(target=self.handle_decision, args=())
         thread_diagnosis.start()
@@ -491,6 +495,7 @@ class Node:
                 content_name=f'marker/{CONFIG["primary_marker"]}',
                 data=1
             )
+            self.move(position=data['position'])
 
         # Neighbor discovery (received by non primary nodes only).
         elif 'neighbor' in interest:
@@ -580,9 +585,11 @@ class Node:
             socket_connection, address = self.socket.accept()
             self.handle_incoming(socket_connection)
 
-    def move(self):
-        while True:
-            time.sleep(1)
+    def move(self, position=random.randint(0, CONFIG['blood_stream_length']-1)):
+        ''' Simulates movement of nodes. '''
+        # Bot has moved to some new location by the time this function is called.
+        self.position = random.randint(0, CONFIG['blood_stream_length']-1)
+        while self.position != position: # Moving to cancer location.
             new_position = self.position + int(
                 CONFIG['blood_speed']
                 + self.__actuators['head_rotator']
@@ -591,11 +598,11 @@ class Node:
             if new_position >= CONFIG['blood_stream_length']: 
                 new_position = 0
             self.position = new_position
-            if (
-                self.marker != CONFIG['primary_marker']
-                and self.__sensors['beacon'] == self.position
-                and self.__actuators['tethers'] != 1
-            ): self.set_actuator('tethers', 1)
+        if (
+            self.marker != CONFIG['primary_marker']
+            and self.__sensors['beacon'] == self.position
+            and self.__actuators['tethers'] != 1
+        ): self.set_actuator('tethers', 1)
 
     def search_beacon(self):
         ''' If beacon sensor of a non-primary bot 
@@ -784,6 +791,7 @@ class Node:
                 and self.__sensors['cancer_marker'] == 0
             ):
                 cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                self.move()
                 self.set_sensors('cancer_marker', int(cancer_marker_value))
         
 if __name__ == '__main__':
