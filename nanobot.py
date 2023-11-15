@@ -74,11 +74,9 @@ class Node:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
-        # self.lock = threading.Lock()
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbor_discovery_complete = False
-        if self.marker != CONFIG['primary_marker']:
-            self.primary_node = None
+        if self.marker != CONFIG['primary_marker']: self.primary_node = None
         self.diagnosis = None
         self.__sensors = { # sensors
             'cancer_marker': 0, # 1 => detected
@@ -113,17 +111,9 @@ class Node:
         # Listens for connection to self server.
         thread_listen = threading.Thread(target=self.listen, args=())
         thread_listen.start()
-        
-        # # Move thread.
-        # thread_move = threading.Thread(target=self.move, args=())
-        # thread_move.start()
-        
-        # If this is a primary bot, scan the environment for primary cancer marker.
-        if self.marker == CONFIG['primary_marker']:
-            thread_primary_marker = threading.Thread(target=self.sense_primary_marker, args=())
-            thread_primary_marker.start()
+
         # Else scan the environment for a beacon.
-        else:
+        if self.marker != CONFIG['primary_marker']:
             thread_beacon = threading.Thread(target=self.search_beacon, args=())
             thread_beacon.start()
         
@@ -768,6 +758,13 @@ class Node:
         if sensor == 'cancer_marker':
             self.__sensors['cancer_marker'] = value
 
+            # If a primary marker's cancer sensor is not set
+            # simulate environment search for cancer marker.
+            if value == 0 and self.marker == CONFIG['primary_marker']:
+                cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                self.move()
+                self.set_sensors('cancer_marker', int(cancer_marker_value))
+
             # Update the value in content store with latest
             # marker value detected.
             self.add_to_cs(f'marker/{self.marker}', self.__sensors['cancer_marker'])
@@ -776,23 +773,15 @@ class Node:
             # its cancer marker, then tether to the current spot.
             if self.marker == CONFIG['primary_marker']:
                 if self.__sensors['cancer_marker'] == 1:
-                    self.set_actuator('tethers', 1)
-                    self.set_actuator('beacon', 1)
+                    if self.__actuators['tethers'] != 1:
+                        self.set_actuator('tethers', 1)
+                    if self.__actuators['beacon'] != 1:
+                        self.set_actuator('beacon', 1)
                 else: 
                     if self.__actuators['tethers'] != 0:
                         self.set_actuator('tethers', 0)
                     if self.__actuators['beacon'] != 0:
                         self.set_actuator('beacon', 0)
-
-    def sense_primary_marker(self):
-        while True:
-            if (
-                self.marker == CONFIG['primary_marker']
-                and self.__sensors['cancer_marker'] == 0
-            ):
-                cancer_marker_value = input('Primary cancer marker detected? (1): ')
-                self.move()
-                self.set_sensors('cancer_marker', int(cancer_marker_value))
         
 if __name__ == '__main__':
     args = setup_argparser()
