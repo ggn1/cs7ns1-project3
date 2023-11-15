@@ -107,19 +107,12 @@ class Node:
         self.set_sensors('cancer_marker', 0)
 
         # THREADS
-        
         # Listens for connection to self server.
-        thread_listen = threading.Thread(target=self.listen, args=())
-        thread_listen.start()
-
-        # Else scan the environment for a beacon.
-        if self.marker != CONFIG['primary_marker']:
-            thread_beacon = threading.Thread(target=self.search_beacon, args=())
-            thread_beacon.start()
-        
-        # Diagnosis monitor.
-        thread_diagnosis = threading.Thread(target=self.handle_decision, args=())
-        thread_diagnosis.start()
+        thread_listen_conn = threading.Thread(target=self.listen_conn, args=())
+        thread_listen_conn.start()
+        # Listens for events.
+        thread_listen_event = threading.Thread(target=self.listen_event, args=())
+        thread_listen_event.start()
 
     def __print_tables(self):
         print(f'\n[{self.name}]')
@@ -130,6 +123,43 @@ class Node:
 
     def __print(self, to_print):
         print(f'[{self.name}] {to_print}')
+
+    def listen_event(self):
+        ''' Listens for various events. '''
+        # If beacon sensor of a non-primary bot 
+        # does not contain a position value indicating
+        # that this bot has picked up a beacon,
+        # search for a beacon.
+        
+        # BEACON
+        searching = False
+        while True:
+            if ( # Only non primary bots yet to detect a beacon, searches.
+                self.marker != CONFIG['primary_marker'] 
+                and self.__sensors['beacon'] < 0
+            ): 
+                # If we were not searching, start since we don't know where primary bot is.
+                if searching == False:
+                    searching = True
+                    print(f'[{self.name}] Searching for beacon ...')
+                    send_tcp(
+                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
+                        host=CONFIG['rendezvous_server'][0],
+                        port=CONFIG['rendezvous_server'][1]
+                    )
+            else:
+                if searching == True: # If we were searching, stop since found beacon.
+                    searching = False
+
+            # Be ready to take action as soon as a decision is available.
+            if self.diagnosis:
+                time.sleep(3)
+                self.__print(self.position)
+                self.__print(f'Diagnosis = {self.diagnosis}.')
+                if self.diagnosis == 'cancer':
+                    self.initiate_attack_sequence()
+                else: # decision == 'healthy'
+                    self.initiate_state_reset()
 
     def sense_cancer_marker(self):
         ''' Returns latest value in sensor. '''
@@ -151,7 +181,7 @@ class Node:
             self.forwarding_information_base[content_name] = {}
         if outgoing_face_name in self.forwarding_information_base[content_name] and not replace:
             self.forwarding_information_base[content_name][outgoing_face_name] += 1
-        else: 
+        else:
             self.forwarding_information_base[content_name][outgoing_face_name] = 0
         # self.__print(f'Added {outgoing_face_name}:{self.forwarding_information_base[content_name][outgoing_face_name]} to FIB.')
 
@@ -312,7 +342,6 @@ class Node:
                 decision = 'healthy'
                 if sum(marker_values) == len(CONFIG['markers']):
                     decision = 'cancer'
-                # self.handle_decision(decision)
                 self.diagnosis = decision
 
     def handle_interest_packet(self, packet):
@@ -567,7 +596,7 @@ class Node:
             self.handle_interest_packet(packet)
         conn.close()
 
-    def listen(self):
+    def listen_conn(self):
         ''' Listens on given port. '''
         self.socket.listen()
         print(f'[{self.name}] Listening on {self.host} port {self.port} ...')
@@ -575,10 +604,11 @@ class Node:
             socket_connection, address = self.socket.accept()
             self.handle_incoming(socket_connection)
 
-    def move(self, position=random.randint(0, CONFIG['blood_stream_length']-1)):
+    def move(self, position):
         ''' Simulates movement of nodes. '''
         # Bot has moved to some new location by the time this function is called.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
+        print(f'POSITION: {self.position} != {position}')
         while self.position != position: # Moving to cancer location.
             new_position = self.position + int(
                 CONFIG['blood_speed']
@@ -762,7 +792,7 @@ class Node:
             # simulate environment search for cancer marker.
             if value == 0 and self.marker == CONFIG['primary_marker']:
                 cancer_marker_value = input('Primary cancer marker detected? (1): ')
-                self.move(position=self.position)
+                self.move(position=random.randint(0, CONFIG['blood_stream_length']-1))
                 self.set_sensors('cancer_marker', int(cancer_marker_value))
 
             # Update the value in content store with latest

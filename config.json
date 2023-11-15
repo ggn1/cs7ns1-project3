@@ -1,6 +1,6 @@
 {
     "rendezvous_server": ["127.0.0.1", 33000],
-    "blood_stream_length": 10,
+    "blood_stream_length": 20,
     "blood_speed": 0.5,
     "markers": ["tumour", "acidity", "growth", "survivin", "ecmr"],
     "primary_marker": "tumour"
