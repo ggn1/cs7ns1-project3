@@ -310,7 +310,6 @@ class Node:
         else: self.primary_node = None
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
-        time.sleep(3)
         self.diagnosis = None
         self.__print('State reset.')
 
