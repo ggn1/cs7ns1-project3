@@ -154,7 +154,6 @@ class Node:
             # Be ready to take action as soon as a decision is available.
             if self.diagnosis:
                 time.sleep(3)
-                self.__print(self.position)
                 self.__print(f'Diagnosis = {self.diagnosis}.')
                 if self.diagnosis == 'cancer':
                     self.initiate_attack_sequence()
@@ -315,17 +314,6 @@ class Node:
         self.diagnosis = None
         self.__print('State reset.')
 
-    def handle_decision(self):
-        ''' Take action based on decision made. '''
-        while True:
-            if self.diagnosis:
-                time.sleep(3)
-                self.__print(f'Diagnosis = {self.diagnosis}.')
-                if self.diagnosis == 'cancer':
-                    self.initiate_attack_sequence()
-                else: # decision == 'healthy'
-                    self.initiate_state_reset()
-
     def satisfy_interest(self, interest, data_packet):
         ''' Handles desired data packet. '''
         data = data_packet['data']
@@ -399,7 +387,7 @@ class Node:
                     self.__print('Neighbor discovery complete.')
                     self.set_actuator('beacon', 0)
                     self.__print('Beacon turned off.')
-                    self.__print_tables()
+                    # self.__print_tables()
 
         # When a primary node receives diagnose interest from all non-primary 
         # nodes and this primary node's neighbor discovery is complete, this
@@ -608,7 +596,6 @@ class Node:
         ''' Simulates movement of nodes. '''
         # Bot has moved to some new location by the time this function is called.
         self.position = random.randint(0, CONFIG['blood_stream_length']-1)
-        print(f'POSITION: {self.position} != {position}')
         while self.position != position: # Moving to cancer location.
             new_position = self.position + int(
                 CONFIG['blood_speed']
@@ -623,31 +610,6 @@ class Node:
             and self.__sensors['beacon'] == self.position
             and self.__actuators['tethers'] != 1
         ): self.set_actuator('tethers', 1)
-
-    def search_beacon(self):
-        ''' If beacon sensor of a non-primary bot 
-            does not contain a position value indicating
-            that this bot has picked up a beacon,
-            search for a beacon.
-        '''
-        searching = False
-        while True:
-            if ( # Only non primary bots yet to detect a beacon, searches.
-                self.marker != CONFIG['primary_marker'] 
-                and self.__sensors['beacon'] < 0
-            ): 
-                # If we were not searching, start since we don't know where primary bot is.
-                if searching == False:
-                    searching = True
-                    print(f'[{self.name}] Searching for beacon ...')
-                    send_tcp(
-                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
-                        host=CONFIG['rendezvous_server'][0],
-                        port=CONFIG['rendezvous_server'][1]
-                    )
-            else:
-                if searching == True: # If we were searching, stop since found beacon.
-                    searching = False
 
     def start_diagnosis(self):
         # Get marker value for each possible marker.
