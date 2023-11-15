@@ -769,7 +769,7 @@ class Node:
             if value == 0 and self.marker == CONFIG['primary_marker']:
                 cancer_marker_value = 0
                 trials = 0
-                while cancer_marker_value != 1:
+                while cancer_marker_value != '1':
                     if trials >= CONFIG['trials']['tumour_search']:
                         self.set_actuator('diffuser', 1)
                     cancer_marker_value = input('Primary cancer marker detected? (1): ')
