@@ -71,6 +71,9 @@ class Node:
         self.name = name
         self.host = host
         self.port = port
+        self.position = random.randint( # position in blood stream.
+            0, CONFIG['blood_stream_length']-1
+        )
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
@@ -102,9 +105,6 @@ class Node:
 
         self.set_sensors('beacon', -1)
         self.set_sensors('cancer_marker', 0)
-
-        # Position in blood stream.
-        self.position = random.randint(0, CONFIG['blood_stream_length']-1)
 
         # THREADS
         
@@ -762,7 +762,7 @@ class Node:
             # simulate environment search for cancer marker.
             if value == 0 and self.marker == CONFIG['primary_marker']:
                 cancer_marker_value = input('Primary cancer marker detected? (1): ')
-                self.move()
+                self.move(position=self.position)
                 self.set_sensors('cancer_marker', int(cancer_marker_value))
 
             # Update the value in content store with latest
