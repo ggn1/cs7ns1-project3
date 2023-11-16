@@ -4,6 +4,6 @@
     "blood_speed": 0.5,
     "markers": ["tumour", "acidity", "growth", "survivin", "ecmr"],
     "primary_marker": "tumour",
-    "timeout": {"beacon_search":10, "last_conn":10},
+    "timeout": {"beacon_search":10, "last_conn":30},
     "trials": {"beacon_search":2, "tumour_search":2}
 }
