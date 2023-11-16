@@ -261,6 +261,7 @@ class Node:
         ''' Protocol that bots execute to untether and 
             continue operation. '''
         # Reset all state variables.
+        self.last_conn = None
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbors = {}
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
@@ -554,6 +555,7 @@ class Node:
         print(f'[{self.name}] Listening on {self.host} port {self.port} ...')
         while True:
             socket_connection, address = self.socket.accept()
+            self.last_conn = time.time()
             self.handle_incoming(socket_connection)
 
     def listen_event(self):
@@ -605,6 +607,23 @@ class Node:
                     self.initiate_attack_sequence()
                 else: # decision == 'healthy'
                     self.initiate_state_reset()
+            
+            if self.marker == CONFIG['primary_marker']:
+                if self.__actuators['tethers']:
+                    cur_time = time.time()
+                    if self.last_conn == None:
+                        self.last_conn = cur_time
+                    elif cur_time - self.last_conn > CONFIG['timeout']['last_conn']:
+                        self.__print('Stale connection')
+                        self.initiate_state_reset()
+            else:
+                if self.__sensors['beacon'] > 0:
+                    cur_time = time.time()
+                    if self.last_conn == None:
+                        self.last_conn = cur_time
+                    elif cur_time - self.last_conn > CONFIG['timeout']['last_conn']:
+                        self.__print('Stale connection')
+                        self.initiate_state_reset()
 
     def move(self, position):
         ''' Simulates movement of nodes. '''
