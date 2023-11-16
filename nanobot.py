@@ -93,6 +93,7 @@ class Node:
             'cargo_hatch': 0, # 1 => open
             'diffuser': 0, # 1 => diffused
         }
+        self.last_conn = None
         if self.marker == CONFIG['primary_marker']: # special variables that only primary node has
             self.__actuators['beacon'] = 0 # 1 => active.
             self.ready_to_decide = 0
@@ -260,6 +261,7 @@ class Node:
         ''' Protocol that bots execute to untether and 
             continue operation. '''
         # Reset all state variables.
+        self.last_conn = None
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbors = {}
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
@@ -553,6 +555,7 @@ class Node:
         print(f'[{self.name}] Listening on {self.host} port {self.port} ...')
         while True:
             socket_connection, address = self.socket.accept()
+            self.last_conn = time.time()
             self.handle_incoming(socket_connection)
 
     def listen_event(self):
@@ -574,7 +577,7 @@ class Node:
                 cur_time = time.time()
                 if (
                     not search_start_time is None
-                    and ((cur_time-search_start_time)>=CONFIG['timeout']['beacon_search'])
+                    and ((cur_time-search_start_time) >= CONFIG['timeout']['beacon_search'])
                 ):
                     searching = False
                     if search_trials > CONFIG['trials']['beacon_search']:
@@ -593,6 +596,8 @@ class Node:
             else:
                 if searching == True: # If we were searching, stop since found beacon.
                     searching = False
+                    search_start_time = None
+                    search_trials = 0
 
             # Be ready to take action as soon as a decision is available.
             if self.diagnosis:
@@ -602,54 +607,23 @@ class Node:
                     self.initiate_attack_sequence()
                 else: # decision == 'healthy'
                     self.initiate_state_reset()
-
-    def listen_event(self):
-        ''' Listens for various events. '''
-        # If beacon sensor of a non-primary bot 
-        # does not contain a position value indicating
-        # that this bot has picked up a beacon,
-        # search for a beacon.
-        
-        # BEACON
-        searching = False
-        search_trials = 0
-        search_start_time = None
-        while True:
-            if ( # Only non primary bots yet to detect a beacon, searches.
-                self.marker != CONFIG['primary_marker'] 
-                and self.__sensors['beacon'] < 0
-            ): 
-                cur_time = time.time()
-                if (
-                    not search_start_time is None
-                    and ((cur_time-search_start_time)>=CONFIG['timeout']['beacon_search'])
-                ):
-                    searching = False
-                    if search_trials > CONFIG['trials']['beacon_search']:
-                        self.set_actuator('diffuser', 1)
-                # If we were not searching, start since we don't know where primary bot is.
-                if searching == False:
-                    searching = True
-                    search_start_time = time.time()
-                    search_trials += 1
-                    print(f'[{self.name}] Searching for beacon ...')
-                    send_tcp(
-                        message=make_interest_packet(content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on'), 
-                        host=CONFIG['rendezvous_server'][0],
-                        port=CONFIG['rendezvous_server'][1]
-                    )
+            
+            if self.marker == CONFIG['primary_marker']:
+                if self.__actuators['tethers']:
+                    cur_time = time.time()
+                    if self.last_conn == None:
+                        self.last_conn = cur_time
+                    elif cur_time - self.last_conn > CONFIG['timeout']['last_conn']:
+                        self.__print('Stale connection')
+                        self.initiate_state_reset()
             else:
-                if searching == True: # If we were searching, stop since found beacon.
-                    searching = False
-
-            # Be ready to take action as soon as a decision is available.
-            if self.diagnosis:
-                time.sleep(3)
-                self.__print(f'Diagnosis = {self.diagnosis}.')
-                if self.diagnosis == 'cancer':
-                    self.initiate_attack_sequence()
-                else: # decision == 'healthy'
-                    self.initiate_state_reset()
+                if self.__sensors['beacon'] > 0:
+                    cur_time = time.time()
+                    if self.last_conn == None:
+                        self.last_conn = cur_time
+                    elif cur_time - self.last_conn > CONFIG['timeout']['last_conn']:
+                        self.__print('Stale connection')
+                        self.initiate_state_reset()
 
     def move(self, position):
         ''' Simulates movement of nodes. '''

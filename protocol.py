@@ -5,10 +5,16 @@ import socket
 def send_tcp(message, host, port):
     # print(f'{message} to {host} {port}.')
     socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socket_temp.connect((host, port))
-    message = message.encode('utf-8')
-    socket_temp.send(message)
-    socket_temp.close()
+    try:
+        socket_temp.connect((host, port))
+        message = message.encode('utf-8')
+        socket_temp.send(message)
+    except Exception as e:
+        message = json.loads(message)
+        message = message['content_name'].split('/')[0].split('-')
+        print(f'[{message[2]}] Connection Error: {e}.')
+    finally:
+        socket_temp.close()
 
 def make_interest_packet(content_name):
     ''' Creates an interest packet. '''
