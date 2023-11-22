@@ -60,4 +60,11 @@ CMD4 (BotC)> 1
 CMD5 (BotD)> 1
 CMD6 (BotE)> 1
 
-[DIAGNOSIS = CANCER]
+[HUMAN SAFETY = BOT DOES NOT REMAIN IN BODY IF NOT NEEDED]
+CMD2 (BotA)> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+CMD3 (BotB)> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+CMD4 (BotC)> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+CMD5 (BotD)> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+CMD6 (BotE)> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+CMD2 (BotA)> 0 (0 simulates not detecting anything).
+CMD2 (BotA)> 0 (x no. of trials can be set, here = 2).
