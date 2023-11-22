@@ -187,7 +187,7 @@ class Node:
         # If a known route exists, check if it points towards sender itself. 
         else: 
             # If best route not same as sender 
-            # check if the cost of the route.
+            # check the cost of the route.
             if fwd_neighbour[0] != sender_name:
                 # If cost > 0, then there may be a better path. Explore
                 # other viable neighbor options.
@@ -231,7 +231,7 @@ class Node:
                         random.randint(0, len(viable_options)-1)
                     ]
                 # Else pick a random neighbor from list of all neighbors to send to.
-                # add this neighbor to fib if not already present.
+                # Add this neighbor to fib if not already present.
                 fwd_neighbour = self.get_random_viable_neighbor(sender_name)
                 if fwd_neighbour not in all_routes:
                     self.add_to_fib(content_name, fwd_neighbour, replace=False)
@@ -389,11 +389,6 @@ class Node:
             # 1. Add interest to PIT.
             self.add_to_pit(content_name=interest, incoming_face_name=sender_name)
 
-            # # Route packets only if neighbor discovery is complete.
-            # # Don't forward if own neighbor discovery is incomplete.
-            # # Just store in PIT until neighbor discovery is complete.
-            # if self.neighbor_discovery_complete:
-
             # 2. Attempt to get requested content from CS.
             cs_value = self.get_from_cs(content_name=interest)
 
@@ -522,7 +517,7 @@ class Node:
                 if interested_party == self.name:
                     self.satisfy_interest(interest=interest, data_packet=packet)
 
-                # Else this interested party is another peer
+                # Else if this interested party is another peer
                 # that had previously requested this content.
                 # Forward it to them.
                 else: 
@@ -545,7 +540,7 @@ class Node:
         packet = json.loads(message)
         if packet['type'] == 'data':
             self.handle_data_packet(packet)
-        else:
+        else: # packet['type'] == 'interest'
             self.handle_interest_packet(packet)
         conn.close()
 

@@ -74,6 +74,8 @@ class Server:
                 )
             if interest in self.pending_interest_table:
                 self.pending_interest_table.pop(interest)
+            if len(self.pending_interest_table) == 0 and 'beacon/on' in self.content_store:
+                self.content_store.pop('beacon/on')
 
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -89,7 +91,7 @@ class Server:
             self.add_to_pit(interest, sender_name)
             self.serve_beacon_interested_parties(interest)
 
-        elif '/'.join(interest) == 'beacon/off':
+        elif '/'.join(interest) == 'beacon/off' and 'beacon/on' in self.content_store:
             old_content_src = self.content_store['beacon/on']['content_name'].split('/')[0]
             cur_content_src = content_name[0]
             if (old_content_src == cur_content_src): 

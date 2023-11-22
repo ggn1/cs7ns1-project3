@@ -1,0 +1,71 @@
+Spin Up 6 Terminals (T)
+=======================
+
+[START]
+T1 (Server)> python rendezvous_server.py --host 127.0.0.1 --port 33000
+T2 (BotA)> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+T3 (BotB)> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+T4 (BotC)> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+T5 (BotD)> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+T6 (BotE)> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+
+[DIAGNOSIS = HEALTHY]
+T2 (BotA)> 1
+T3 (BotB)> 0
+T4 (BotC)> 0
+T5 (BotD)> 1
+T6 (BotE)> 0
+
+[NON PRIMARY BOTS UNREACHABLE/LATE]
+T5 (BotD)> Unreachable.
+T5 (BotE)> Unreachable.
+T2 (BotA)> 1
+T2 (BotB)> 0
+T2 (BotC)> 0
+T5 (BotD)> Reachable after 5 seconds.
+T5 (BotD)> 0
+T5 (BotE)> Reachable after 30 seconds.
+T2 (BotA)> 1
+T2 (BotB)> 0
+T2 (BotC)> 0
+T5 (BotD)> 0
+T5 (BotE)> 0
+
+[SERVER UNREACHABLE]
+T2 (BotA)> 1
+T1 (Server)> Unreachable.
+T2 (BotB)> 0
+T2 (BotC)> 0
+T5 (BotD)> 1
+T5 (BotE)> 1
+T1 (Server)> Reachable after 10 seconds.
+T2 (BotA)> 1
+T2 (BotB)> 0
+T2 (BotC)> 0
+T5 (BotD)> 1
+T5 (BotE)> 1
+
+[PRIMARY BOT UNREACHABLE]
+T2 (BotA)> 1 
+T2 (BotB)> 0
+T2 (BotC)> 0
+T2 (BotA)> Unreachable.
+T2 (BotD)> 1
+T2 (BotE)> 0
+T2 (BotA)> Reachable after 10 seconds.
+
+[DIAGNOSIS = CANCER]
+T2 (BotA)> 1
+T3 (BotB)> 1
+T4 (BotC)> 1
+T5 (BotD)> 1
+T6 (BotE)> 1
+
+[HUMAN SAFETY = BOT DOES NOT REMAIN IN BODY IF NOT NEEDED]
+T2 (BotA)> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+T3 (BotB)> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+T4 (BotC)> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+T5 (BotD)> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+T6 (BotE)> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+T2 (BotA)> 0 (0 simulates not detecting anything).
+T2 (BotA)> 0 (x no. of trials can be set, here = 2).
