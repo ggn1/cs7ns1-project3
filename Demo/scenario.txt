@@ -1,0 +1,23 @@
+Spin Up 6 Terminal Windows
+==========================
+[START]
+CMD1 (Server)> python rendezvous_server.py --host 127.0.0.1 --port 33000
+CMD2 (BotA)> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+CMD3 (BotB)> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+CMD4 (BotC)> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+CMD5 (BotD)> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+CMD6 (BotE)> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+
+[DIAGNOSIS = HEALTHY]
+CMD2 (BotA)> 1
+CMD3 (BotB)> 0
+CMD4 (BotC)> 0
+CMD5 (BotD)> 1
+CMD6 (BotE)> 0
+
+[DIAGNOSIS = CANCER]
+CMD2 (BotA)> 1
+CMD3 (BotB)> 1
+CMD4 (BotC)> 1
+CMD5 (BotD)> 1
+CMD6 (BotE)> 1
