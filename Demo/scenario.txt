@@ -15,9 +15,49 @@ CMD4 (BotC)> 0
 CMD5 (BotD)> 1
 CMD6 (BotE)> 0
 
+[NON PRIMARY BOTS UNREACHABLE/LATE]
+CMD5 (BotD)> Unreachable.
+CMD5 (BotE)> Unreachable.
+CMD2 (BotA)> 1
+CMD2 (BotB)> 0
+CMD2 (BotC)> 0
+CMD5 (BotD)> Reachable after 5 seconds.
+CMD5 (BotD)> 0
+CMD5 (BotE)> Reachable after 30 seconds.
+CMD2 (BotA)> 1
+CMD2 (BotB)> 0
+CMD2 (BotC)> 0
+CMD5 (BotD)> 0
+CMD5 (BotE)> 0
+
+[SERVER UNREACHABLE]
+CMD2 (BotA)> 1
+CMD1 (Server)> Unreachable.
+CMD2 (BotB)> 0
+CMD2 (BotC)> 0
+CMD5 (BotD)> 1
+CMD5 (BotE)> 1
+CMD1 (Server)> Reachable after 10 seconds.
+CMD2 (BotA)> 1
+CMD2 (BotB)> 0
+CMD2 (BotC)> 0
+CMD5 (BotD)> 1
+CMD5 (BotE)> 1
+
+[PRIMARY BOT UNREACHABLE]
+CMD2 (BotA)> 1 
+CMD2 (BotB)> 0
+CMD2 (BotC)> 0
+CMD2 (BotA)> Unreachable.
+CMD2 (BotD)> 1
+CMD2 (BotE)> 0
+CMD2 (BotA)> Reachable after 10 seconds.
+
 [DIAGNOSIS = CANCER]
 CMD2 (BotA)> 1
 CMD3 (BotB)> 1
 CMD4 (BotC)> 1
 CMD5 (BotD)> 1
 CMD6 (BotE)> 1
+
+[DIAGNOSIS = CANCER]
