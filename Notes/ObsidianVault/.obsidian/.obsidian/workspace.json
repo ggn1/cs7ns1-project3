@@ -1,14 +1,14 @@
 {
   "main": {
-    "id": "4da443f28b5f80ca",
+    "id": "cbb22b883fa4e27e",
     "type": "split",
     "children": [
       {
-        "id": "c22124fe79317b3c",
+        "id": "1764ba449722c966",
         "type": "tabs",
         "children": [
           {
-            "id": "164e380dc56e1e47",
+            "id": "39de6aedd997fbd6",
             "type": "leaf",
             "state": {
               "type": "empty",
@@ -21,15 +21,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "4525927f794e08d2",
+    "id": "ee17d7c442c7dd93",
     "type": "split",
     "children": [
       {
-        "id": "8fe6e6ae61d5bf68",
+        "id": "73fdba788f201c33",
         "type": "tabs",
         "children": [
           {
-            "id": "4bf912ea32647a92",
+            "id": "820d9d1ce4e9a060",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -39,7 +39,7 @@
             }
           },
           {
-            "id": "721e00a2f6deea76",
+            "id": "33284c6a403a40a8",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -54,7 +54,7 @@
             }
           },
           {
-            "id": "681ee05cfe48bb16",
+            "id": "6a6071527c9c4344",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -68,15 +68,15 @@
     "width": 300
   },
   "right": {
-    "id": "f3fed2ec9002f7e6",
+    "id": "44d8a710519ea43a",
     "type": "split",
     "children": [
       {
-        "id": "91b3dd65ef5e2290",
+        "id": "9228f503bb7e96f9",
         "type": "tabs",
         "children": [
           {
-            "id": "8410b0af3e383f6a",
+            "id": "b1ab9656835a62b0",
             "type": "leaf",
             "state": {
               "type": "backlink",
@@ -92,7 +92,7 @@
             }
           },
           {
-            "id": "e0353db127455225",
+            "id": "fd1eac2c939a257a",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
@@ -103,7 +103,7 @@
             }
           },
           {
-            "id": "68fe6cbf2a6e9ee4",
+            "id": "82702bf571a14b20",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -114,7 +114,7 @@
             }
           },
           {
-            "id": "93bf38f39895f1bf",
+            "id": "f62e57e164dffdfb",
             "type": "leaf",
             "state": {
               "type": "outline",
@@ -138,11 +138,6 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "164e380dc56e1e47",
-  "lastOpenFiles": [
-    "P2P.md",
-    "Peer Discovery.md",
-    "Untitled.canvas",
-    "Information Centric Networking.md"
-  ]
+  "active": "39de6aedd997fbd6",
+  "lastOpenFiles": []
 }
