@@ -20,35 +20,35 @@ T6 (BotE)> 0
 T5 (BotD)> Unreachable.
 T6 (BotE)> Unreachable.
 T2 (BotA)> 1
-T2 (BotB)> 0
-T2 (BotC)> 0
+T3 (BotB)> 0
+T4 (BotC)> 0
 T5 (BotD)> Reachable after 5 seconds.
 T5 (BotD)> 0
 T6 (BotE)> Reachable after 30 seconds.
 T2 (BotA)> 1
-T2 (BotB)> 0
-T2 (BotC)> 0
+T3 (BotB)> 0
+T4 (BotC)> 0
 T5 (BotD)> 0
 T6 (BotE)> 0
 
 [SERVER UNREACHABLE]
 T2 (BotA)> 1
 T1 (Server)> Unreachable.
-T2 (BotB)> 0
-T2 (BotC)> 0
+T3 (BotB)> 0
+T4 (BotC)> 0
 T5 (BotD)> 1
 T6 (BotE)> 1
 T1 (Server)> Reachable after 10 seconds.
 T2 (BotA)> 1
-T2 (BotB)> 0
-T2 (BotC)> 0
+T3 (BotB)> 0
+T4 (BotC)> 0
 T5 (BotD)> 1
 T6 (BotE)> 1
 
 [PRIMARY BOT UNREACHABLE]
 T2 (BotA)> 1 
-T2 (BotB)> 0
-T2 (BotC)> 0
+T3 (BotB)> 0
+T4 (BotC)> 0
 T2 (BotA)> Unreachable.
 T2 (BotD)> 1
 T2 (BotE)> 0
