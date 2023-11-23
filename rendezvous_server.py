@@ -74,8 +74,8 @@ class Server:
                 )
             if interest in self.pending_interest_table:
                 self.pending_interest_table.pop(interest)
-            if len(self.pending_interest_table) == 0 and 'beacon/on' in self.content_store:
-                self.content_store.pop('beacon/on')
+            # if len(self.pending_interest_table) == 0 and 'beacon/on' in self.content_store:
+            #     self.content_store.pop('beacon/on')
 
     def handle_interest_packet(self, packet):
         content_name = packet['content_name'].split('/')
