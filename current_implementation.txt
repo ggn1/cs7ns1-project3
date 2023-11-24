@@ -1,3 +1,5 @@
+NOTE: <node-id> = <host-port-name-marker>
+
 [PRIMARY BOT]
 
 > Listens for connections.
@@ -14,13 +16,25 @@
 >> Update the value in content store with latest self marker value detected.
 >> Tether to the current spot.
 
+> Receives interest packet `<node-id>/neighbor/<required-marker>` indicating start of neighbor discovery.
+>> Adds sender of request to list of neighbors.
+>> Updates FIB with route to sender.
+>> Adds sender to PIT.
+>> Service all interested nodes with required neighbor information only once this node has received 5 such requests. Servicing here involves this node sending information about node corresponding to requested marker such as host, port and name to interested party in the form of a data packet with the content name `<node-id>/neighbor/<requested-marker>`.
+>> Once serviced, pop interested node from PIT.
+>> Once neighbor discovery is complete (4 other neighbors discovered), turn off beacon.This is simulated by this node sending an interest packet of the form `<node-id>/beacon/off` to the rendezvous server.
+
+> Receives interest packet `<node-id>/diagnose` indicating desire od sender to begin decision making for diagnosis.
+>> When a primary node has received this diagnose interest from all non-primary nodes and this primary node's neighbor discovery is complete, this means neighbor discovery of entire network is complete. Now, this node sends sends a diagnose interest to all non-primary nodes to reciprocate desire to start collective diagnosis. Primary bot start diagnosis only upon receiving 4 diagnose requests.
+>> Start diagnosis.
+
 [NON-PRIMARY BOT]
 
 > Listens for incoming connections.
 
 > Listens for following events.
 >> 1. Beacon from primary bot signalling detection of a potentially cancerous tumour.
->>> If this bot is yet to have picked up on a beacon from a primary bot then it searches for a beacon. This behavior is simulated by the non-primary bot sending an interest packet of the from `<self.host>-<self.port>-<self.name>-<self.marker>/beacon/on` to the rendezvous server. 
+>>> If this bot is yet to have picked up on a beacon from a primary bot then it searches for a beacon. This behavior is simulated by the non-primary bot sending an interest packet of the from `<node-id>/beacon/on` to the rendezvous server. 
 >>> This search request is repeated for a set t no of trials after every set s seconds. Upon expiry of this set time, the bot is diffused as it's presence in the body is deemed unnecessary.
 >> 2. Check to see if a diagnosis is available.
 >> 3. Check for a stale connection. If this bot was connected to a team, check if this bot has received any communication from this team in the last set x amount of time or not. If not, reset state.
@@ -35,14 +49,73 @@
 
 > Detects self marker value from environment.
 >> Update value corresponding to marker in content store.
->> Start neighbor discovery.
+>> Start neighbor discovery. For all possible markers, if it's not own marker or a marker for which this bot already has forwarding information in the FIB, send an interest packet to the primary node for information about the node with this marker. This interest packet is of the form `<node-id>/neighbor/<required-marker>`.
 
-[NEIGHBOR DISCOVERY]
-TO DO ... 
+> Receives neighbor related data packet from primary node.
+>> This data packet received contains host, port and name of neighbor corresponding to a specific marker. The content name of the packet is of the form `<node-id>/neighbor/<required-marker>`.
+>> Add neighbor to neighbors dictionary.
+>> Add this neighbor's marker path to FIB.
+>> Check if 4 neighbors are known. If so, neighbor discovery is complete.
+>> Once neighbor discovery is complete, send an interest packet of the format `<node-id>/diagnose` to the primary node expressing desire to start decision making. 
+
+> Receives interest packet `<node-id>/diagnose` from primary bot. This indicates that neighbor discovery of primary bot as well as entire team is complete and that decision making may commence.
+>> Non primary bots can start collective diagnosis upon receiving 1 diagnose request from the primary bot that they know of.
+
+[DIAGNOSIS]
+> The aim here is to update own knowledge with values of all possible markers so that the collective decision of whether the cell is truly cancer/healthy can be determined. If at least 1 of the neighbors detect 0 instead of 1, the cell is considered healthy.
+>> For each possible marker, this bot first tries to fetch its value from CS.
+>> If marker value is found in CS, then knowledge is updated immediately.
+>> Else, for any marker whose value is yet to be in content base, an interest packet is created.
+>> Own interest packet is added to PIT.
+>> A suitable neighbor to which this packet may be forwarded is determined from FIB.
+>> Interest packet of the form `<node-id>/marker/<required-marker>` is forwarder to chosen best possible neighbor.
+
+> Bot receives requested marker value in a data packet with content name `<node-id>/marker/<required-marker>`.
+>> Update own knowledge.
+>> Check if diagnosis can be made. Diagnosis may be made once all 5 marker values are known in knowledge dictionary.
+>> Once diagnosis can be made, set diagnosis to 'cancer'/'healthy' decision made.
+
+[ROUTING GENERAL INTEREST PACKETS]
+> Bot receives an interest packet of the form `<node-id>/marker/<required-marker>`.
+>> Map content name to sender in PIT table.
+>> Attempt to serve interested party from information in CS.
+>> If requested data is unavailable in CS, an appropriate neighbor is chosen for this packet to be forwarded to. To avoid taking longer paths, the cost of last used route for this content if any if updated (+1). If there is a last used route X then it means that this packet has come back to this node as a result of having taken X. So, this cost update will encourage picking another possibly better route this time. Forward packet to chosen neighbor.
+>> If this peer has requested content in its CS. For every interested party in PIT send data packet with requested data and same content name as requested. Remove entry corresponding to served interested parties from PIT. 
+
+> Bot receives data packet with content name `<node-id>/marker/<required-marker>`.
+>> Cache in CS.
+>> Check PIT table. Serve every party in PIT interested in received content. If no interested parties, drop packet.
+>> For every interested party in PIT, if interested party is not self, send data packet with requested data and same content name as requested. 
+>> If interested party is self, satisfy own interest.
+>> Remove entry corresponding to served interested parties from PIT. 
+
+[EVENT - DIAGNOSE]
+> Event listener picks up on diagnosis being available.
+>> If decision is 'cancer', then initiate attack sequence.
+>>> Open hatch and release blood clotting enzyme thrombin that clots blood flow surrounding the tumour thereby starving it.
+>>> Self-destruct and in the process deal damage to the tumour.
+>> If decision is 'healthy', then reset state of this bot.
+
+[CHOOSING BEST NEIGHBOR]
+> A node always tries to get the cheapest route for given content from FIB.
+> If a known route does not exist, a random neighbor is returned. This decision is added to FIB.
+> If a known route exists, check if it points towards sender itself. 
+>> If known route is not same as sender, check the cost of the route.
+>>> If cost is 0, then this is the best neighbor.
+>>> If cost > 0, then there may be a better path. Explore other viable neighbor options.
+>>> If there are as many existing routes for this content as neighbors then this means no unexplored neighbors exist. Hence, current route, despite costing more than 0, remains to be the best option.
+>>> If there are less routes than no. of neighbors, explore other neighbors.
+>>>> Loop through all neighbors and find one that's not been explored yet (not in the FIB yet).
+>>>> If a viable neighbor was found, this is best neighbor.
+>>>> Else, last selected neighbor is best neighbor.
+>> If known route is same as sender, find another route.
+>>> Check to see if there is another known viable route.
+>>>> If so, this is new best neighbor.
+>>>> Else, pick a random viable neighbor. This decision is added to FIB.
 
 [RV SERVER]
 
-> Receives interest packet of the from `<self.host>-<self.port>-<self.name>-<self.marker>/beacon/on` from a non-primary bot.
+> Receives interest packet of the from `<node-id>/beacon/on` from a non-primary bot.
 >> Adds this bot to set of non-primary bots.
 >> Tries to serve non-primary bots searching for a beacon.
 >>> For every interested non-primary bot check if there is a free primary bot that either has a spot in its team for this bot's marker type or has this bot already registered as a team member. If so, assign corresponding primary bot's information to this bot.
