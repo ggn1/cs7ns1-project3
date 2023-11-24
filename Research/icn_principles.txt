@@ -1,7 +1,0 @@
-ICN Principles
-==============
-1. Packets do not contain location information. They only contain information about packet contents.
-2. Communication occurs via a pull-based model where it is the consumer of a packet that controls the communication.
-3. Communications are connection less.
-4. In-network forwarding decisions are dynamic.
-5. There is in-network storage.
