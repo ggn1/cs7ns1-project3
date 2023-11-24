@@ -1,0 +1,22 @@
+PRIMARY BOT:
+> Listens for connections.
+
+> Listens for following events.
+>> 1. Check to see if a diagnosis is available.
+>> 2. Check if this bot is tethered to a cell indicating having detected a possibly cancerous tumour.
+>> 3. Check for a stale connection. If this bot was connected to a team, check if this bot has received any communication from this team in the last set x amount of time or not. If not, reset state.
+
+NON-PRIMARY BOT:
+> Listens for incoming connections.
+
+> Listens for following events.
+>> 1. Beacon from primary bot signalling detection of a potentially cancerous tumour.
+>>> If this bot is yet to have picked up on a beacon from a primary bot then it searches for a beacon. This behaviour is simulated by the non-primary bot sending an interest packet of the from `<self.host>-<self.port>-<self.name>-<self.marker>/beacon/on` to the rendezvous server. This search request is sent again for a set t no of trials after every set s seconds. Upon expiry of this set time, the bot is diffused as it's presence in the body is deemed unnecessary.
+>> 2. Check to see if a diagnosis is available.
+>> 3. Check for a stale connection. If this bot was connected to a team, check if this bot has received any communication from this team in the last set x amount of time or not. If not, reset state.
+
+RV SERVER:
+> Receives interest packet of the from `<self.host>-<self.port>-<self.name>-<self.marker>/beacon/on` from a non-primary bot.
+> Adds this bot to set of non-primary bots.
+> Tries to serve non-primary bots searching for a beacon.
+>> For every interested non-primary bot check if there is a free primary bot that either has a spot in its team for this bot's marker type or has this bot already registered as a team member. If so, assign corresponding primary bot's information to this bot.
