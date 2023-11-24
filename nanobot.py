@@ -728,12 +728,7 @@ class Node:
                     send_tcp(
                         message=make_data_packet(
                             content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on',
-                            data={
-                                'name': self.name,
-                                'position': self.position, 
-                                'host': self.host, 
-                                'port':self.port
-                            }
+                            data={'position': self.position}
                         ),
                         host=CONFIG['rendezvous_server'][0],
                         port=CONFIG['rendezvous_server'][1]
