@@ -709,7 +709,7 @@ class Node:
                 if self.marker != CONFIG['primary_marker']:
                     if self.knowledge[self.marker] == -1: # Take cancer marker sensor reading.
                         cancer_marker_value = int(input('Sensing cancer marker value: '))
-                        self.set_sensors('cancer_marker', cancer_marker_value)
+                        self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
                     self.start_neighbour_discovery()
             else: # value == 0
                 # Tethers retract and rotators apply positive
@@ -781,13 +781,13 @@ class Node:
             if value == 0 and self.marker == CONFIG['primary_marker']:
                 cancer_marker_value = 0
                 trials = 0
-                while cancer_marker_value != '1':
+                while cancer_marker_value == 0:
                     if trials >= CONFIG['trials']['tumour_search']:
                         self.set_actuator('diffuser', 1)
-                    cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                    cancer_marker_value = int(input('Primary cancer marker detected? (1): '))
                     trials += 1
                 self.move(position=random.randint(0, CONFIG['blood_stream_length']-1))
-                self.set_sensors('cancer_marker', int(cancer_marker_value))
+                self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
 
             # Update the value in content store with latest
             # marker value detected.
