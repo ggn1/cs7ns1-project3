@@ -3,16 +3,15 @@ import time
 import socket
 
 def send_tcp(message, host, port):
-    # print(f'{message} to {host} {port}.')
     socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        socket_temp.connect((host, port))
+        socket_temp.connect((host, int(port)))
         message = message.encode('utf-8')
         socket_temp.send(message)
     except Exception as e:
         message = json.loads(message)
         message = message['content_name'].split('/')[0].split('-')
-        print(f'[{message[2]}] Connection Error: {e}.')
+        print(f'[{message[2]}] Connection Error: {e}. Message = {message}.')
     finally:
         socket_temp.close()
 

@@ -174,7 +174,7 @@ class Node:
         ''' Get the name of a node to which a packet with 
             given content name can be forwarded to.
         '''
-        # Attempt to get cheapest route for given content from FIB
+        # Attempt to get cheapest route for given content from FIB.
         fwd_neighbour = self.get_from_fib(content_name, get_cost=True) # [name, cost] / None 
        
         # If known route does not exist,
@@ -202,7 +202,7 @@ class Node:
                     # all_routes = {neighbour: cost, ...}
                     if len(all_routes) < len(self.neighbors): # explore other neighbors
                         viable_n = None
-                        # loop through all neighbors and find that's 
+                        # loop through all neighbors and find one that's 
                         # not been explored yet (not in the FIB yet).
                         for n in self.neighbors.keys(): 
                             if n not in all_routes and n != sender_name:
@@ -212,9 +212,6 @@ class Node:
                             fwd_neighbour = fwd_neighbour[0]
                         else: # viable neighbour found
                             fwd_neighbour = viable_n
-                    # If there are already no. of routes for this content
-                    # equal to no. of neighbors, then this means that current 
-                    # route is the best possible one.
                     else: 
                         fwd_neighbour = fwd_neighbour[0]
                 else: # If cost is 0, then this is the best option.
@@ -290,7 +287,7 @@ class Node:
             # data = {'marker_type': <marker type>, 'marker_value': <marker value>}
             self.knowledge[data['marker_type']] = data['marker_value']
             marker_values = list(self.knowledge.values())
-            # If all marker values are known, share decision with all peers.
+            # If all marker values are known, make diagnosis.
             if marker_values.count(-1) == 0:
                 decision = 'healthy'
                 if sum(marker_values) == len(CONFIG['markers']):
@@ -359,7 +356,7 @@ class Node:
         # means neighbor discovery of entire network is complete. It also then 
         # sends a diagnose interest to all non-primary nodes. 
         elif 'diagnose' in interest: 
-            # Primary bot can start decision making upon receiving 3 diagnose requests.
+            # Primary bot can start decision making upon receiving 4 diagnose requests.
             if self.marker == CONFIG['primary_marker']: # Primary node.
                 self.ready_to_decide += 1
                 if (
@@ -560,11 +557,11 @@ class Node:
         # that this bot has picked up a beacon,
         # search for a beacon.
         
-        # BEACON
         searching = False
         search_trials = 0
         search_start_time = None
         while True:
+            # BEACON
             if ( # Only non primary bots yet to detect a beacon, searches.
                 self.marker != CONFIG['primary_marker'] 
                 and self.__sensors['beacon'] < 0
@@ -594,6 +591,7 @@ class Node:
                     search_start_time = None
                     search_trials = 0
 
+            # DIAGNOSIS
             # Be ready to take action as soon as a decision is available.
             if self.diagnosis:
                 time.sleep(3)
@@ -603,6 +601,7 @@ class Node:
                 else: # decision == 'healthy'
                     self.initiate_state_reset()
             
+            # STALE CONNECTION
             if self.marker == CONFIG['primary_marker']:
                 if self.__actuators['tethers']:
                     cur_time = time.time()
@@ -709,7 +708,7 @@ class Node:
                 if self.marker != CONFIG['primary_marker']:
                     if self.knowledge[self.marker] == -1: # Take cancer marker sensor reading.
                         cancer_marker_value = int(input('Sensing cancer marker value: '))
-                        self.set_sensors('cancer_marker', cancer_marker_value)
+                        self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
                     self.start_neighbour_discovery()
             else: # value == 0
                 # Tethers retract and rotators apply positive
@@ -728,12 +727,7 @@ class Node:
                     send_tcp(
                         message=make_data_packet(
                             content_name=f'{self.host}-{self.port}-{self.name}-{self.marker}/beacon/on',
-                            data={
-                                'name': self.name,
-                                'position': self.position, 
-                                'host': self.host, 
-                                'port':self.port
-                            }
+                            data={'position': self.position}
                         ),
                         host=CONFIG['rendezvous_server'][0],
                         port=CONFIG['rendezvous_server'][1]
@@ -786,13 +780,13 @@ class Node:
             if value == 0 and self.marker == CONFIG['primary_marker']:
                 cancer_marker_value = 0
                 trials = 0
-                while cancer_marker_value != '1':
+                while cancer_marker_value == 0:
                     if trials >= CONFIG['trials']['tumour_search']:
                         self.set_actuator('diffuser', 1)
-                    cancer_marker_value = input('Primary cancer marker detected? (1): ')
+                    cancer_marker_value = int(input('Primary cancer marker detected? (1): '))
                     trials += 1
                 self.move(position=random.randint(0, CONFIG['blood_stream_length']-1))
-                self.set_sensors('cancer_marker', int(cancer_marker_value))
+                self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
 
             # Update the value in content store with latest
             # marker value detected.
