@@ -4,5 +4,6 @@ Please use comments to highlight the main contribution effort/block in the code 
 
 Please submit a single package to include: 
 	i) the code, 
-	ii) a single runme.sh/runme.bat that sets up your system and runs the emulation/demo that we saw in the live interview session, 	iii) a README that tell us how and what is necessary to execute your demo and have it perform as you intended.  
+	ii) a single runme.sh/runme.bat that sets up your system and runs the emulation/demo that we saw in the live interview session, 	
+	iii) a README that tell us how and what is necessary to execute your demo and have it perform as you intended.  
 Please also note that the demonstrators will follow the instructions in your README verbatim so it is in your interests to try to ensure that your submitted package is complete and fit for purpose.

@@ -1,3 +1,4 @@
+# AUTHOR [START]: Gayathri Girish Nair (23340334)
 import os
 import time
 import json
@@ -811,3 +812,5 @@ class Node:
 if __name__ == '__main__':
     args = setup_argparser()
     bot = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
+
+# AUTHOR [END]: Gayathri Girish Nair (23340334)
