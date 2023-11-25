@@ -15,6 +15,7 @@ NOTE: <node-id> = <host-port-name-marker>
 > Tumour detected.
 >> 1. Update the value in content store with latest self marker value detected.
 >> 2. Tether to the current spot.
+>> 3. Activate beacon. Implemented by sending interest packet of the form <node-id>/beacon/on to the rendezvous server.
 
 > Receives interest packet `<node-id>/neighbor/<required-marker>` indicating start of neighbor discovery.
 >> 1. Adds sender of request to list of neighbors.
@@ -24,7 +25,7 @@ NOTE: <node-id> = <host-port-name-marker>
 >> 5. Once serviced, pop interested node from PIT.
 >> 6. Once neighbor discovery is complete (4 = (no. of team members - 1) other neighbors discovered), turn off beacon. This is simulated by this node sending an interest packet of the form `<node-id>/beacon/off` to the rendezvous server.
 
-> Receives interest packet `<node-id>/diagnose` indicating desire od sender to begin decision making for diagnosis.
+> Receives interest packet `<node-id>/diagnose` indicating desire of sender to begin decision making for diagnosis.
 >> 1. When a primary node has received this diagnose interest from all non-primary nodes and this primary node's neighbor discovery is complete, this means neighbor discovery of entire network is complete. Now, this node sends a diagnose interest to all non-primary nodes to reciprocate desire to start collective diagnosis. Primary bot starts diagnosis only upon receiving 4 = (no. of team members - 1) diagnose requests.
 >> Start diagnosis.
 
@@ -35,7 +36,7 @@ NOTE: <node-id> = <host-port-name-marker>
 > Listens for following events.
 >> 1. Beacon from primary bot signalling detection of a potentially cancerous tumour.
 >>> 1.2. If this bot is yet to have picked up on a beacon from a primary bot then it searches for a beacon. This behavior is simulated by the non-primary bot sending an interest packet of the from `<node-id>/beacon/on` to the rendezvous server. 
->>> 1.3. This search request is repeated for a set t no of trials after every set s seconds. Upon expiry of this set time, the bot is diffused as it's presence in the body is deemed unnecessary.
+>>> 1.3. This search request is repeated for a set x no. of trials after every set y seconds. Upon expiry of this set time, the bot is diffused as it's presence in the body is deemed unnecessary.
 >> 2. Check to see if a diagnosis is available.
 >> 3. Check for a stale connection. If this bot was connected to a team, check if this bot has received any communication from this team in the last set x amount of time or not. If not, reset state.
 
@@ -56,7 +57,7 @@ NOTE: <node-id> = <host-port-name-marker>
 >> 2. Add neighbor to neighbors dictionary.
 >> 3. Add this neighbor's marker path to FIB.
 >> 4. Check if 4 (4 = no. of team members - 1) neighbors are known. If so, neighbor discovery is complete.
->> 5. Once neighbor discovery is complete, send an interest packet of the format `<node-id>/diagnose` to the primary node expressing desire to start decision making. 
+>> 5. Once neighbor discovery is complete, send an interest packet of the format `<node-id>/diagnose` to the primary node expressing desire to start diagnosis. 
 
 > Receives interest packet `<node-id>/diagnose` from primary bot. This indicates that neighbor discovery of primary bot as well as entire team is complete and that decision making may commence.
 >> 1. Non primary bots can start collective diagnosis upon receiving 1 diagnose request from the primary bot that they know of.
@@ -79,12 +80,12 @@ NOTE: <node-id> = <host-port-name-marker>
 > Bot receives an interest packet of the form `<node-id>/marker/<required-marker>`.
 >> 1. Map content name to sender in PIT table.
 >> 2. Attempt to serve interested party from information in CS.
->> 3. If requested data is unavailable in CS, an appropriate neighbor is chosen for this packet to be forwarded to. To avoid taking longer paths, the cost of last used route for this content if any if updated (+1). If there is a last used route X then it means that this packet has come back to this node as a result of having taken X. So, this cost update will encourage picking another possibly better route this time. Forward packet to chosen neighbor.
+>> 3. If requested data is unavailable in CS, an appropriate neighbor is chosen for this packet to be forwarded to. To avoid taking longer paths, the cost of last used route for this content if any is updated (+1). If there is a last used route X then it means that this packet has come back to this node as a result of having taken X. So, this cost update will encourage picking another possibly better route this time. Forward packet to chosen neighbor.
 >> 4. If this peer has requested content in its CS. For every interested party in PIT send data packet with requested data and same content name as requested. Remove entry corresponding to served interested parties from PIT. 
 
 > Bot receives data packet with content name `<node-id>/marker/<required-marker>`.
 >> 1. Cache in CS.
->> 2. Check PIT table. Serve every party in PIT interested in received content. If no interested parties, drop packet.
+>> 2. Check PIT table. If no interested parties, drop packet.
 >> 3. For every interested party in PIT, if interested party is not self, send data packet with requested data and same content name as requested. 
 >> 4. If interested party is self, satisfy own interest.
 >> 5. Remove entry corresponding to served interested parties from PIT. 
