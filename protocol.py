@@ -1,3 +1,4 @@
+# AUTHOR [START]: Gayathri Girish Nair (23340334)
 import json
 import time
 import socket
@@ -31,3 +32,4 @@ def make_data_packet(content_name, data):
         'type': 'data'
     }
     return json.dumps(packet)
+# AUTHOR [END]: Gayathri Girish Nair (23340334)
