@@ -1,5 +1,0 @@
-<host>-<port>-<name>/beacon/on/<timestamp>
-<host>-<port>-<name>/beacon/off/<timestamp>
-<host>-<port>-<name>/<marker>/neighbor/<timestamp>
-<host>-<port>-<name>/marker/<marker>/<timestamp>
-<host>-<port>-<name>/marker/<marker>/<timestamp>
