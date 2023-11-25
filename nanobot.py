@@ -102,7 +102,7 @@ class Node:
 
         # NDN
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
-        self.pending_interest_table = {}
+        self.pending_interests_table = {}
         self.forwarding_information_base = {}
 
         self.set_sensors('beacon', -1)
@@ -120,7 +120,7 @@ class Node:
         print(f'\n[{self.name}]')
         print(f'\tNeighbors = {self.neighbors}.')
         print(f'\tCS = {self.content_store}.')
-        print(f'\tPIT = {self.pending_interest_table}.')
+        print(f'\tPIT = {self.pending_interests_table}.')
         print(f'\tFIB = {self.forwarding_information_base}.')
 
     def __print(self, to_print):
@@ -131,14 +131,14 @@ class Node:
         return self.__sensors['cancer_marker']
 
     def add_to_pit(self, content_name, incoming_face_name):
-        if not content_name in self.pending_interest_table:
-            self.pending_interest_table[content_name] = []
-        if incoming_face_name not in self.pending_interest_table[content_name]:
-            self.pending_interest_table[content_name].append(incoming_face_name)    
+        if not content_name in self.pending_interests_table:
+            self.pending_interests_table[content_name] = []
+        if incoming_face_name not in self.pending_interests_table[content_name]:
+            self.pending_interests_table[content_name].append(incoming_face_name)    
 
     def get_from_pit(self, content_name):
-        if content_name in self.pending_interest_table:
-            return self.pending_interest_table[content_name]
+        if content_name in self.pending_interests_table:
+            return self.pending_interests_table[content_name]
         else: return []
 
     def add_to_fib(self, content_name, outgoing_face_name, replace):
@@ -263,7 +263,7 @@ class Node:
         self.knowledge = {m:-1 for m in CONFIG['markers']}
         self.neighbors = {}
         self.content_store = {f'marker/{self.marker}': self.sense_cancer_marker()}
-        self.pending_interest_table = {}
+        self.pending_interests_table = {}
         self.forwarding_information_base = {}
         self.set_actuator('tethers', 0)
         self.neighbor_discovery_complete = False
@@ -323,7 +323,7 @@ class Node:
             if len(self.neighbors) == (len(CONFIG['markers'])-1):
                 self.__print('Servicing all neighbour interest packets.')
                 interests_serviced = []
-                for interest, interested_parties in self.pending_interest_table.items():
+                for interest, interested_parties in self.pending_interests_table.items():
                     requested_marker = interest.split('/')[1]
                     requested_marker_src_name = self.get_from_fib(content_name=f'marker/{requested_marker}')
                     if 'neighbor' in interest: # interest = neighbor/<requested-marker>
@@ -343,7 +343,7 @@ class Node:
                         interests_serviced.append(interest)
                 # Since all above interests were serviced, they may be popped from PIT.
                 for interest in interests_serviced:
-                    self.pending_interest_table.pop(interest)
+                    self.pending_interests_table.pop(interest)
                 
                 if not(self.neighbor_discovery_complete):
                     self.neighbor_discovery_complete = True
@@ -380,7 +380,7 @@ class Node:
                     self.__print('Starting diagnosis ...')
                     self.start_diagnosis()
 
-        # NDN Routing.
+        # NDN Forwarding
         else: 
             interest = '/'.join(interest)
             
@@ -433,7 +433,7 @@ class Node:
                     )
                 # Pop this interest from the table since by now,
                 # all corresponding interested parties have been served.
-                self.pending_interest_table.pop(interest)            
+                self.pending_interests_table.pop(interest)            
 
     def handle_data_packet(self, packet):
         content_name = packet['content_name'].split('/')
@@ -495,7 +495,7 @@ class Node:
                 )
                 self.__print('Ready to diagnose.')
 
-        # NDN Routing
+        # NDN Forwarding
         else: 
             interest = '/'.join(interest)
 
@@ -530,7 +530,7 @@ class Node:
                     
             # Pop this interest from the table since by now,
             # all corresponding interested parties have been served.
-            self.pending_interest_table.pop(interest)
+            self.pending_interests_table.pop(interest)
         
     def handle_incoming(self, conn):
         ''' Handle received data and send appropriate response. '''

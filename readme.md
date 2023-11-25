@@ -1,7 +1,16 @@
-# Idea
+# Use Case: Teams of NanoBots in the body for Cancer detection.
+Every action team comprises 5 nanobots, each to detect one of 5 markers in cells indicative of cancer:
+- "tumour" marker = This is the most important (primary) marker and refers to chemical markers most closely associated with particular kinds of cancer (e.g. Prostate-specific antigen (PSA) associated with Prostrate Cancer).
+- "acidity" marker = Cancerous cells are more acidic in nature than healthy cells, hence this marker.
+- "growth" marker = This marker represents growth factors like Insulin-like Growth Factors (IGFs) and the Epidermal Growth Factor (EGF) that mark uncontrolled growing nature of cancerous tissue.
+- "survivin" marker = This protein counteracts growth inhibitors in the body that allows cancer to keep growing.
+- "ecmr" marker = Extracellular Matrix Remodeling Enzymes like metalloproteinases (MMPs) and lysyl oxidase (LOX) help reshape surroundings of the cancer cell and aid in immune suppression.
 
-## Use Case: NanoBots in the body for Cancer detection.
-Every action team comprises 5 nanobots
+The nanobot that detects the tumour marker is the primary bot which triggers collective diagnosis, while all others are non-primary/secondary bots.
+
+We had demonstrated functioning of 1 such team with 5 bots.
+
+There is also a 6th node in the network called a rendezvous server whose presence may be viewed as perhaps a smart watch worn by the patient. This server was added to simulate NP bots detecting beacon signals emitted by a P bot. If this were in real life, NP bots would simply sense the beacon when it got within range of it. Thus, the rendezvous server here, merely serves to pick up beacon data packets from P bots (active beacon actuator) and relay them the interested NP bots (searching for beacon).
 
 ## Run Instructions
 
