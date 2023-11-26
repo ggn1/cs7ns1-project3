@@ -58,3 +58,7 @@
 [botE] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33005-botE-ecmr/neighbor/survivin/1701031652.353334', 'type': 'interest'}.
 [botB] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33002-botB-acidity/neighbor/ecmr/1701031652.3632355', 'type': 'interest'}.
 [botD] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33004-botD-survivin/neighbor/ecmr/1701031652.3681884', 'type': 'interest'}.
+[botE] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33005-botE-ecmr/beacon/on/1701032443.468875', 'type': 'interest'}.
+[botE] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33005-botE-ecmr/beacon/on/1701032557.3634539', 'type': 'interest'}.
+[botE] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33005-botE-ecmr/beacon/on/1701033055.351506', 'type': 'interest'}.
+[botE] Connection Error: [Errno 111] Connection refused. Message = {'content_name': '127.0.0.1-33005-botE-ecmr/beacon/on/1701033061.4921536', 'type': 'interest'}.

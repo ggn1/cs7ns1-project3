@@ -1,5 +1,6 @@
 # AUTHOR: Tarun Singh (23330140) [Contribution = Security = Logging, auth token, input validation, error handling.]
-# AUTHOR: Gayathri Girish Nair (23340334) [Contribution = Everything else.]
+# AUTHOR: Tejas Bhatnagar (23334930) [Contribution = Testing, Debugging]
+# AUTHOR: Gayathri Girish Nair (23340334) [Contribution = Everything else (ICN, NDN, Scenario set up.)]
 
 import json
 import socket
@@ -25,7 +26,6 @@ file_handler.setLevel(logging.INFO)
 # Create a logger and add the file handler
 logger = logging.getLogger(__name__)
 logger.addHandler(file_handler)
-
 
 def setup_argparser():
     ''' Adds arguments.
