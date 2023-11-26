@@ -14,6 +14,7 @@ from protocol import send_tcp
 from protocol import make_interest_packet
 from protocol import make_data_packet
 import logging
+import secrets
 
 # Create a 'logs' directory if it doesn't exist
 logs_dir = 'logs'
@@ -87,6 +88,8 @@ def setup_argparser():
 CONFIG = {}
 with open('config.json', 'r') as f: CONFIG = json.load(f)
 
+auth_token = secrets.token_urlsafe(32)
+
 class Bot:
     def __init__(self, host, port, marker, name, sensor_value=None):
         self.name = name
@@ -145,6 +148,9 @@ class Bot:
         logging.debug(f'\tPIT = {self.pending_interests_table}.')
         logging.debug(f'\tFIB = {self.forwarding_information_base}.')
     
+    def authenticate_message(self, message):
+        return message.get('auth_token') == self.auth_token
+        
     def __print(self, to_print):
         logging.info(f'[{self.name}] {to_print}')
 
