@@ -10,6 +10,7 @@ from protocol import send_tcp
 from protocol import make_data_packet
 import logging
 import os
+import secrets
 
 # Create a 'logs' directory if it doesn't exist
 logs_dir = 'logs'
