@@ -47,6 +47,6 @@ was obtained from "https://support.scss.tcd.ie/wiki/VPN_Access".
 > python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
 > python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
 
+[RUN SHELL SCRIPT]
 > chmod +x run.sh
 > ./run.sh
-
