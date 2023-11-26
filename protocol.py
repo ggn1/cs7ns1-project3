@@ -23,7 +23,8 @@ logger.addHandler(file_handler)
 def send_tcp(message, host, port):
     socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        socket_temp.connect((host, int(port)))
+        port = int(port)  # Validate that port is an integer
+        socket_temp.connect(host, port)
         message = message.encode('utf-8')
         socket_temp.send(message)
     except Exception as e:
@@ -35,6 +36,10 @@ def send_tcp(message, host, port):
 
 def make_interest_packet(content_name):
     try:
+        # Validate content_name format
+        if not isinstance(content_name, str) or not content_name:
+            raise ValueError("Invalid content_name format.")
+
         packet = {
             "content_name": f'{content_name}/{time.time()}',
             "type": "interest"
@@ -46,6 +51,10 @@ def make_interest_packet(content_name):
 
 def make_data_packet(content_name, data):
     try:
+        # Validate content_name format
+        if not isinstance(content_name, str) or not content_name:
+            raise ValueError("Invalid content_name format.")
+
         packet = {
             "content_name": f'{content_name}/{time.time()}',
             'data': data,
