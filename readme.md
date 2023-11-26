@@ -72,8 +72,8 @@ Six different scenarios are emulated as described below.
     4. Bots B, C, D and E that were searching for a beacon, keep doing so for a set amount of time and trials (here 2) after which they too diffuses themselves on account of np longer being required in the body.
 
 ## 2. Run Instructions
-Original demonstration involves manual input of marker values 1/0 on separate terminal windows (one for each entity) for better readability.
-Please find a link to this video here: **TO DO**.
+Original demonstration involved manual input of marker values 1/0 on separate terminal windows (one for each entity) for better readability.
+Please find a link to this video here: https://drive.google.com/file/d/1kFizBfB--VzE7GYL8Q8Azu2tmKfvhihN/view?usp=sharing.
 
 ### 2.1. Pre-Requisites
 Kindly ensure you navigate to the folder containing the following files.
