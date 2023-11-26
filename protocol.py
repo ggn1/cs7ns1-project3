@@ -1,3 +1,4 @@
+# AUTHOR [START]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)
 import json
 import time
 import socket
@@ -24,7 +25,7 @@ def send_tcp(message, host, port):
     socket_temp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         port = int(port)  # Validate that port is an integer
-        socket_temp.connect(host, port)
+        socket_temp.connect((host, port))
         message = message.encode('utf-8')
         socket_temp.send(message)
     except Exception as e:
@@ -54,7 +55,7 @@ def make_data_packet(content_name, data):
         # Validate content_name format
         if not isinstance(content_name, str) or not content_name:
             raise ValueError("Invalid content_name format.")
-
+            
         packet = {
             "content_name": f'{content_name}/{time.time()}',
             'data': data,
@@ -64,3 +65,5 @@ def make_data_packet(content_name, data):
     except Exception as e:
         logger.error(f"Error creating data packet: {str(e)}")
         return None
+
+#AUTHOR [END]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)
