@@ -89,8 +89,8 @@ You may run the script on either one of our 2 Pi's. Paths to the desired folder 
 - On Pi 32, please execute: `cd scp3`.
 
 In order to make it easier to run above scenarios that were originally demonstrated manually, they have been automated and can now be run using a single command.
-- Please execute: `./run.sh`.
 - If you are unable to due to restricted read-write-execute permission, please run `chmod +x run.sh` and try again.
+- Please execute: `./run.sh`.
 
 ### 2.2. Expected Output
 <font color='red'>IMPORTANT!
