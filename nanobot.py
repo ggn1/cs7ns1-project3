@@ -67,15 +67,17 @@ def setup_argparser():
 CONFIG = {}
 with open('config.json', 'r') as f: CONFIG = json.load(f)
 
-class Node:
-    def __init__(self, host, port, marker, name):
+class Bot:
+    def __init__(self, host, port, marker, name, sensor_value=None):
         self.name = name
         self.host = host
         self.port = port
+        self.sensor_value = sensor_value
         self.position = random.randint( # position in blood stream.
             0, CONFIG['blood_stream_length']-1
         )
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind((host, port)) # Setting up ears.
         self.marker = marker # The kind of tumour marker this bot detects.
         self.knowledge = {m:-1 for m in CONFIG['markers']}
@@ -252,7 +254,7 @@ class Node:
         ''' Attack protocol that each bot executes
             to destroy cancer cells. '''
         self.set_actuator('cargo_hatch', 1)
-        print(f'[{self.name}]: Preparing to self-destruct.')
+        self.__print('Preparing to self-destruct.')
         self.set_actuator('self_destruct', 1)
     
     def initiate_state_reset(self):
@@ -708,7 +710,11 @@ class Node:
                 # initiate neighbor discovery.
                 if self.marker != CONFIG['primary_marker']:
                     if self.knowledge[self.marker] == -1: # Take cancer marker sensor reading.
-                        cancer_marker_value = int(input('Sensing cancer marker value: '))
+                        if self.sensor_value is None:
+                            cancer_marker_value = int(input(f'[{self.name}] Sensing cancer marker value: '))
+                        else:
+                            cancer_marker_value = int(self.sensor_value)
+                            print(f'[{self.name}] Sensing cancer marker value: {self.sensor_value}')
                         self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
                     self.start_neighbour_discovery()
             else: # value == 0
@@ -751,20 +757,20 @@ class Node:
         elif actuator == 'cargo_hatch':
             self.__actuators[actuator] = value
             if value == 1: 
-                print(f'[{self.name}]: Hatch open. Thrombin deployed.')
+                self.__print('Hatch open. Thrombin deployed.')
             else:
-                print(f'[{self.name}]: Hatch closed.')
+                self.__print('Hatch closed.')
         
         elif actuator == 'self_destruct':
             self.__actuators[actuator] = value
             if value == 1:
-                print(f'Detonated at position {self.position}.')
+                self.__print(f'Detonated at position {self.position}.')
                 os.kill(os.getpid(), signal.SIGTERM)
         
         elif actuator == 'diffuser':
             self.__actuators[actuator] = value
             if value == 1:
-                print(f'Diffused. Goodbye :)')
+                self.__print('Diffused. Goodbye.')
                 os.kill(os.getpid(), signal.SIGTERM)
 
         else: self.__actuators[actuator] = value
@@ -784,7 +790,11 @@ class Node:
                 while cancer_marker_value == 0:
                     if trials >= CONFIG['trials']['tumour_search']:
                         self.set_actuator('diffuser', 1)
-                    cancer_marker_value = int(input('Primary cancer marker detected? (1): '))
+                    if self.sensor_value is None:
+                        cancer_marker_value = int(input(f'[{self.name}] Sensing primary cancer marker value: '))
+                    else:
+                        cancer_marker_value = int(self.sensor_value)
+                        print(f'[{self.name}] Sensing primary cancer marker value: {self.sensor_value}')
                     trials += 1
                 self.move(position=random.randint(0, CONFIG['blood_stream_length']-1))
                 self.set_sensors('cancer_marker', cancer_marker_value if cancer_marker_value == 1 else 0)
@@ -811,6 +821,6 @@ class Node:
         
 if __name__ == '__main__':
     args = setup_argparser()
-    bot = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
+    bot = Bot(host=args.host, port=args.port, marker=args.marker, name=args.name)
 
 # AUTHOR [END]: Gayathri Girish Nair (23340334)
