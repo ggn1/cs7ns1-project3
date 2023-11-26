@@ -10,7 +10,6 @@ from protocol import send_tcp
 from protocol import make_data_packet
 import logging
 import os
-import secrets
 
 # Create a 'logs' directory if it doesn't exist
 logs_dir = 'logs'
@@ -73,9 +72,6 @@ class Server:
         self.non_primary_bots = {}
         self.primary_bots = {}
         self.listen()
-
-   #def authenticate_message(self, message):
-   #     return message.get('auth_token') == self.auth_token
 
     def serve_beacon_interested_parties(self):
             try:
