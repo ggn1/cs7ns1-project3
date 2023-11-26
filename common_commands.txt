@@ -40,12 +40,12 @@ was obtained from "https://support.scss.tcd.ie/wiki/VPN_Access".
 > source venv_networking/bin/activate
 > cd project3
 
-> python rendezvous_server.py --host 127.0.0.1 --port 33000
-> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
-> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
-> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
-> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
-> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+> python3 rendezvous_server.py --host 127.0.0.1 --port 33000
+> python3 nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+> python3 nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+> python3 nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+> python3 nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+> python3 nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
 
 [RUN SHELL SCRIPT]
 > chmod +x run.sh
