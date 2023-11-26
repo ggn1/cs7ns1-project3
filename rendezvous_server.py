@@ -74,6 +74,9 @@ class Server:
         self.primary_bots = {}
         self.listen()
 
+   #def authenticate_message(self, message):
+   #     return message.get('auth_token') == self.auth_token
+
     def serve_beacon_interested_parties(self):
             try:
                 # For every interested non-primary bot,
