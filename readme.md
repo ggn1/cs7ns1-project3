@@ -91,6 +91,7 @@ You may run the script on either one of our 2 Pi's. Paths to the desired folder 
 In order to make it easier to run above scenarios that were originally demonstrated manually, they have been automated and can now be run using a single command.
 - If you are unable to due to restricted read-write-execute permission, please run `chmod +x run.sh` and try again.
 - Please execute: `./run.sh`.
+- Should you wish to run any of the python files manually, kindly use the command `python3` instead of `python` on the pi as version differences seem to be causing syntax errors otherwise.
 
 ### 2.2. Expected Output
 <font color='red'>IMPORTANT!
@@ -121,3 +122,45 @@ Upon running the `run.sh` file, the following results are expected.
     - Preparing to self-destruct. => Bot is self destructing and damaging cancer cell in the process.
     - Detonated at position [position]. => Bot self destructed at the specified position (index in bloodstream array).
     - Diffused. Goodbye. => Bot was deemed unnecessary in the body and has thus safely diffused (turned off/broken down) itself so that body may naturally discard it.
+
+## 3. Code Files
+Following is a quick overview of files in this repository and what they do.
+- run.sh: This file runs executes the python runme.py script in the linux environment,
+- runme.py: This file runs all simulated scenarios.
+- rendezvous_server.py: This file contains the definition of the `Server` class. The rendezvous server that facilitates beacon signal detection, is an instance of this class. It contains the following methods.
+    - `__init__(...)``: This method initializes a `Server` object and creates a TCP socket that is bound to given host and port. Dictionaries that shall store primary and non-primary bot data is also initialized here.
+    - `listen(...)`: This function triggers listing on port for connections.
+    - `handle_incoming(...)`: This function catches incoming data packets and depending on whether they're interest/data packets, sends it to following 2 functions for specialized handling.
+    - `handle_data_packet(...)`: This function handles data packets.
+    - `handle_interest_packet(...)`: This function executes slightly different logic for various kinds of interest packets received.
+    - `serve_beacon_interested_parties(...)`: This function looks up whether there are existing non-primary nodes searching for an available beacon. It forwards data regarding the beacon to them, if found.
+- protocol.py: This file contains functions that facilitate creation and transfer of data/interest packets.
+    - `send_tcp(...)`: Given a message which may be an interest or data packet, encodes it as utf-8 and sends it to given host and port.
+    - `make_interest_packet(...)`: Creates an interest packet from given content name.
+    - `make_data_packet(...)`: Creates an interest packet from given data and content name.
+- nanobot.py: This file contains logic regarding all functionalities of the nanobot entity each of whom act as both client and server as part of the peer to peer network.
+    - `__init__(...)`: Initializes nanobot's state variables and starts threads that listen for connections and events.
+    - `__print_tables(...):` Used for debugging only to print FIB, CS, PIT, Neighbors.
+    - `__print(...)`: Custom print where the name of the bot is printed before content to print.
+    - `sense_cancer_marker(...)`: Detects current value of own cancer marker.
+    - `add_to_pit(...)`: Maps incoming faces/neighbors to content name in PIT.
+    - `get_from_pit(...)`: Gets faces/neighbors mapped to content name from PIT.
+    - `add_to_fib(...)`: Maps outgoing faces/neighbors to content name in FIB while updating cost accordingly.
+    - `get_from_fib(...)`: Gets FIB mappings for content name.
+    - `get_random_viable_neighbor(...)`: Gets a random neighbor from FIB that is not sender itself.
+    - `get_fwd_neighbor(...)`: Get's best possible neighbor from FIB to which given content can be forwarded to.
+    - `add_to_cs(...)`: Adds data to the CS.
+    - `get_from_cs(...)`: Adds data from the CS.
+    - `initiate_attack_sequence(...)`: Executes attack sequence of a bot involving opening hatch and self destructing.
+    - `initiate_state_reset(...)`: Executes state reset by setting state variables back to what they were like during initialization.
+    - `satisfy_interest(...)`: Satisfies own interest using a received marker value related data packet which is to diagnose.
+    - `handle_incoming(...)`: This function catches incoming data packets and depending on whether they're interest/data packets, sends it to following 2 functions for specialized handling.
+    - `handle_data_packet(...)`: This function handles data packets.
+    - `handle_interest_packet(...)`: This function executes slightly different logic for various kinds of interest packets received.
+    - `listen_conn(...)`: Runs in the background (different thread) to listing for connections.
+    - `listen_event(...)`: Listens for various kinds of events (different thread) like availability of diagnosis, beacon signals and stale connections.
+    - `move(...)`: Implements moving through blood stream logic.
+    - `start_diagnosis(...)`: Starts diagnosis process wherein interest packets are sent to peers in order to get data regarding their marker values.
+    - `start_neighbour_discovery(...)`: Non primary bots call this function to start neighbor discovery by sending interest packets to the primary bot.
+    - `set_sensors(...)`: Setter for various sensors of the bot. Implements variations based on type of sensor(cancer_marker/beacon), value (0/1) and bot (primary/non-primary).
+    - `set_actuator(...)`: Setter for various actuators of the bot. Implements variations based on type of actuator(tethers/beacon/cargo_hatch/self_destruct/diffuser), value (0/1) and bot (primary/non-primary).
