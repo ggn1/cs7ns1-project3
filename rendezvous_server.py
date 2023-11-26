@@ -46,6 +46,7 @@ class Server:
         self.host = host
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # IP, TCP
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind((host, port))
         self.non_primary_bots = {}
         self.primary_bots = {}
@@ -125,10 +126,14 @@ class Server:
     def handle_incoming(self, conn):
         ''' Handle received data and send appropriate response. '''
         message = conn.recv(2048).decode('utf-8')
-        packet = json.loads(message)
-        if packet['type'] == 'data': self.handle_data_packet(packet)
-        else: self.handle_interest_packet(packet)
-        conn.close()
+        try:
+            packet = json.loads(message)
+            if packet['type'] == 'data': self.handle_data_packet(packet)
+            else: self.handle_interest_packet(packet)
+        except Exception as e:
+            self.__print(e)
+        finally:
+            conn.close()
         
     def listen(self):
         ''' Listens on given port. '''
