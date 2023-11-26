@@ -1,0 +1,52 @@
+> Connect to SCSS VPN. Instructions on how to do so, 
+was obtained from "https://support.scss.tcd.ie/wiki/VPN_Access".
+
+> SSH into MACNEILL VM using the command "ssh girishng@macneill.scss.tcd.ie".
+
+> SSH into the Raspberry Pi using the command "ssh -l girishng rasp-022.berry.scss.tcd.ie".
+
+> Get a file from remote into local machine: 
+"scp girishng@macneill.scss.tcd.ie:<remote-path> <local-path>"
+
+> Get a directory from remote into local machine: 
+"scp -r girishng@macneill.scss.tcd.ie:<remote-path> <local-path>"
+
+> Send a file from local to remote machine: 
+"scp <local-path> girishng@macneill.scss.tcd.ie:<remote-path>"
+
+> Send a directory from local to remote machine: 
+"scp -r <local-path> girishng@macneill.scss.tcd.ie:<remote-path>"
+
+> Activate environment using the command "source ../../girishng-tflite/bin/activate"
+> Deactivate environment using the command "deactivate"
+
+[LOCAL MACHINE]
+
+> cd C:\Users\g_gna\Documents\TCD\Modules\CS7NS1_ScalableComputing\Projects\Project3
+
+> conda activate networking
+
+> python rendezvous_server.py --host 127.0.0.1 --port 33000
+> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+
+[RASPBERRY PI]
+> ssh girishng@macneill.scss.tcd.ie
+> ssh -l girishng rasp-022.berry.scss.tcd.ie
+
+> source venv_networking/bin/activate
+> cd project3
+
+> python rendezvous_server.py --host 127.0.0.1 --port 33000
+> python nanobot.py --host 127.0.0.1 --port 33001 --name botA --marker tumour
+> python nanobot.py --host 127.0.0.1 --port 33002 --name botB --marker acidity
+> python nanobot.py --host 127.0.0.1 --port 33003 --name botC --marker growth
+> python nanobot.py --host 127.0.0.1 --port 33004 --name botD --marker survivin
+> python nanobot.py --host 127.0.0.1 --port 33005 --name botE --marker ecmr
+
+> chmod +x run.sh
+> ./run.sh
+
