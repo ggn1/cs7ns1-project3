@@ -1,4 +1,6 @@
-# AUTHOR [START]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)
+# AUTHOR: Tarun Singh (23330140) [Contribution = Security = Logging, auth token, input validation, error handling.]
+# AUTHOR: Gayathri Girish Nair (23340334) [Contribution = Everything else.]
+
 import json
 import time
 import socket
@@ -65,5 +67,3 @@ def make_data_packet(content_name, data):
     except Exception as e:
         logger.error(f"Error creating data packet: {str(e)}")
         return None
-
-#AUTHOR [END]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)

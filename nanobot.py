@@ -1,4 +1,6 @@
-# AUTHOR [START]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)
+# AUTHOR: Tarun Singh (23330140) [Contribution = Security = Logging, auth token, input validation, error handling.]
+# AUTHOR: Gayathri Girish Nair (23340334) [Contribution = Everything else.]
+
 import os
 import time
 import json
@@ -909,8 +911,6 @@ class Bot:
 if __name__ == '__main__':
     try:
         args = setup_argparser()
-        bot = Node(host=args.host, port=args.port, marker=args.marker, name=args.name)
+        bot = Bot(host=args.host, port=args.port, marker=args.marker, name=args.name)
     except Exception as e:
         logger.error(f"Error in main block: {str(e)}")
-
-#AUTHOR [END]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)

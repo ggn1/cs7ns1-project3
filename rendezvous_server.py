@@ -1,4 +1,6 @@
-# AUTHOR [START]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)
+# AUTHOR: Tarun Singh (23330140) [Contribution = Security = Logging, auth token, input validation, error handling.]
+# AUTHOR: Gayathri Girish Nair (23340334) [Contribution = Everything else.]
+
 import json
 import socket
 import argparse
@@ -179,5 +181,3 @@ class Server:
 if __name__ == '__main__':
     args = setup_argparser()
     server = Server(host=args.host, port=args.port)
-
-# AUTHOR [END]: Gayathri Girish Nair (23340334) - Tarun Singh (23330140)

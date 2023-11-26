@@ -1,4 +1,5 @@
 # AUTHOR [START]: Gayathri Girish Nair (23340334)
+
 import time
 from nanobot import Bot
 import multiprocessing as mp
@@ -169,4 +170,3 @@ if __name__ == '__main__':
     print('\nSCENARIO 6: No cancer suspicion so no need for diagnosis.')
     no_cancer_suspicion()
     print('SCENARIO 6 COMPLETE :)')
-# AUTHOR [END]: Gayathri Girish Nair (23340334)
