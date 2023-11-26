@@ -161,7 +161,7 @@ class Server:
             if packet['type'] == 'data': self.handle_data_packet(packet)
             else: self.handle_interest_packet(packet)
         except Exception as e:
-            self.__print(e)
+            self.print(f'[ERROR]: {e}')
         finally:
             conn.close()
 
