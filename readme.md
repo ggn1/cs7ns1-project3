@@ -164,3 +164,4 @@ Following is a quick overview of files in this repository and what they do.
     - `start_neighbour_discovery(...)`: Non primary bots call this function to start neighbor discovery by sending interest packets to the primary bot.
     - `set_sensors(...)`: Setter for various sensors of the bot. Implements variations based on type of sensor(cancer_marker/beacon), value (0/1) and bot (primary/non-primary).
     - `set_actuator(...)`: Setter for various actuators of the bot. Implements variations based on type of actuator(tethers/beacon/cargo_hatch/self_destruct/diffuser), value (0/1) and bot (primary/non-primary).
+- config.json: This file contains configurations settings for globally visible variables like markers, timeout, blood_speed, markers, primary_marker, etc.
